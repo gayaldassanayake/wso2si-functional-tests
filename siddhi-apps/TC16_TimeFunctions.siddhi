@@ -1,0 +1,55 @@
+@App:name('TC16_TimeFunctions')
+@App:description('Time extension functions: dateFormat, timestampInMilliseconds, dateAdd, dateDiff')
+
+/*
+Tests: currentTimeMillis(), time:timestampInMilliseconds(), time:dateFormat(),
+       time:dateAdd(), time:dateDiff(), time:extract().
+Port : 8111
+Deps : none
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8111/TC16_TimeFunctions/EventStream',
+        @map(type='json'))
+define stream EventStream (eventId string, eventDate string, daysToAdd int);
+
+@sink(type='log', prefix='[TC16]')
+define stream TimeFunctionResultStream (eventId string,
+                                         originalDate string,
+                                         timestampMs long,
+                                         formattedDate string,
+                                         addedDate string,
+                                         currentTs long,
+                                         dayOfWeek int);
+
+@PrimaryKey('eventId')
+define table TimeFunctionTable (eventId string,
+                                  originalDate string,
+                                  timestampMs long,
+                                  formattedDate string,
+                                  addedDate string);
+
+@info(name='time-ops')
+from EventStream
+select eventId,
+       eventDate as originalDate,
+       time:timestampInMilliseconds(eventDate, 'yyyy-MM-dd') as timestampMs,
+       time:dateFormat(time:timestampInMilliseconds(eventDate, 'yyyy-MM-dd'), 'EEE dd-MMM-yyyy') as formattedDate,
+       time:dateAdd(eventDate, daysToAdd, 'DAY', 'yyyy-MM-dd') as addedDate,
+       currentTimeMillis() as currentTs,
+       time:extract('WEEKDAY', eventDate, 'yyyy-MM-dd') as dayOfWeek
+insert into TimeFunctionResultStream;
+
+@info(name='time-to-table')
+from EventStream
+select eventId,
+       eventDate as originalDate,
+       time:timestampInMilliseconds(eventDate, 'yyyy-MM-dd') as timestampMs,
+       time:dateFormat(time:timestampInMilliseconds(eventDate, 'yyyy-MM-dd'), 'EEE dd-MMM-yyyy') as formattedDate,
+       time:dateAdd(eventDate, daysToAdd, 'DAY', 'yyyy-MM-dd') as addedDate
+update or insert into TimeFunctionTable
+    set TimeFunctionTable.originalDate = originalDate,
+        TimeFunctionTable.timestampMs = timestampMs,
+        TimeFunctionTable.formattedDate = formattedDate,
+        TimeFunctionTable.addedDate = addedDate
+    on TimeFunctionTable.eventId == eventId;

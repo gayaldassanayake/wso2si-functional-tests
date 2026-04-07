@@ -1,0 +1,33 @@
+@App:name('TC06_StoreAndQuery')
+@App:description('In-memory table with exhaustive Store Query API verification')
+
+/*
+Tests: Store API success/error paths (200, 404, 400, 500), where/having filters,
+       primary key upsert, record count verification.
+Port : 8104
+Deps : none
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8104/TC06_StoreAndQuery/ProductStream',
+        @map(type='json'))
+define stream ProductStream (productId string, name string, category string, price double, stock int);
+
+@sink(type='log', prefix='[TC06]')
+define stream ProductLogStream (productId string, name string, category string, price double, stock int);
+
+@PrimaryKey('productId')
+define table ProductTable (productId string, name string, category string, price double, stock int);
+
+@info(name='log-events')
+from ProductStream
+select productId, name, category, price, stock
+insert into ProductLogStream;
+
+@info(name='to-table')
+from ProductStream
+select productId, name, category, price, stock
+update or insert into ProductTable
+    set ProductTable.name = name, ProductTable.category = category,
+        ProductTable.price = price, ProductTable.stock = stock
+    on ProductTable.productId == productId;

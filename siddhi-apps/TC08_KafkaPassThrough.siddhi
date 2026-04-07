@@ -1,0 +1,38 @@
+@App:name('TC08_KafkaPassThrough')
+@App:description('Kafka source -> filter -> Kafka sink, with log sink for all events')
+
+/*
+Tests: Kafka transport source and sink, JSON mapping over Kafka, filter before Kafka publish.
+Deps : Kafka (Docker Compose), Kafka OSGi jars in $SI_HOME/lib/
+*/
+
+@source(type='kafka',
+        topic.list='si-test-input',
+        partition.no.list='0',
+        threading.option='single.thread',
+        group.id='si-test-group',
+        bootstrap.servers='localhost:9092',
+        @map(type='json'))
+define stream SweetInputStream (name string, amount double);
+
+@sink(type='kafka',
+      topic='si-test-output',
+      bootstrap.servers='localhost:9092',
+      partition.no='0',
+      @map(type='json'))
+define stream HighAmountStream (name string, amount double);
+
+@sink(type='log', prefix='[TC08-KAFKA]')
+define stream KafkaLogStream (name string, amount double);
+
+-- Forward all events to log sink for observation
+@info(name='log-all')
+from SweetInputStream
+select name, amount
+insert into KafkaLogStream;
+
+-- Only forward high-amount events (> 10.0) to Kafka output topic
+@info(name='filter-high')
+from SweetInputStream[amount > 10.0]
+select name, amount
+insert into HighAmountStream;

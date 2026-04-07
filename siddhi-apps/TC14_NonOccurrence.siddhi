@@ -1,0 +1,35 @@
+@App:name('TC14_NonOccurrence')
+@App:description('Non-occurrence pattern: alert when a heartbeat is missing for 15 seconds')
+
+/*
+Tests: not <stream>[condition] for <duration> non-occurrence pattern.
+Port : 8109 (two paths: /HeartbeatStream and /QueryStream)
+Deps : none
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8109/TC14_NonOccurrence/HeartbeatStream',
+        @map(type='json'))
+define stream HeartbeatStream (deviceId string, status string);
+
+@sink(type='log', prefix='[TC14-MISSING]')
+define stream MissingHeartbeatStream (deviceId string, alertMessage string);
+
+@PrimaryKey('deviceId')
+define table MissingHeartbeatTable (deviceId string, alertMessage string);
+
+-- Alert when a device sends a heartbeat but the NEXT heartbeat from the same device
+-- does NOT arrive within 15 seconds
+@info(name='non-occurrence-pattern')
+from every e1=HeartbeatStream
+     -> not HeartbeatStream[deviceId == e1.deviceId] for 15 sec
+select e1.deviceId as deviceId,
+       str:concat('No heartbeat from device ', e1.deviceId, ' for 15 seconds') as alertMessage
+insert into MissingHeartbeatStream;
+
+@info(name='missing-to-table')
+from MissingHeartbeatStream
+select deviceId, alertMessage
+update or insert into MissingHeartbeatTable
+    set MissingHeartbeatTable.alertMessage = alertMessage
+    on MissingHeartbeatTable.deviceId == deviceId;

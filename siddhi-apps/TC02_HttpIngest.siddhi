@@ -1,0 +1,31 @@
+@App:name('TC02_HttpIngest')
+@App:description('HTTP JSON ingest -> in-memory table + log sink, with Store API verification')
+
+/*
+Tests: HTTP source, in-memory table writes, primary key upsert, Store API queries.
+Port : 8100
+Deps : none
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8100/TC02_HttpIngest/SweetStream',
+        @map(type='json'))
+define stream SweetStream (name string, amount double, category string);
+
+@sink(type='log', prefix='[TC02]')
+define stream LogStream (name string, amount double, category string);
+
+@PrimaryKey('name')
+define table SweetTable (name string, amount double, category string);
+
+@info(name='to-log')
+from SweetStream
+select name, amount, category
+insert into LogStream;
+
+@info(name='to-table')
+from SweetStream
+select name, amount, category
+update or insert into SweetTable
+    set SweetTable.amount = amount, SweetTable.category = category
+    on SweetTable.name == name;

@@ -1,0 +1,84 @@
+@App:name('TC15_FormatTransform')
+@App:description('Data format transformation: XML input with XPath mapping, JSON custom payload mapping')
+
+/*
+Tests: XML source with XPath attribute mapping, JSON source with custom @attributes mapping,
+       CSV mapping, @payload annotation for output formatting.
+Port : 8110 (three paths: /XmlStream, /JsonCustomStream, /CsvStream)
+Deps : none
+*/
+
+-- Path 1: XML input with XPath custom attribute mapping
+@source(type='http',
+        receiver.url='http://0.0.0.0:8110/TC15_FormatTransform/XmlStream',
+        @map(type='xml',
+             @attributes(productId='//product/@id',
+                         name='//product/name',
+                         price='//product/price')))
+define stream XmlInputStream (productId string, name string, price double);
+
+-- Path 2: JSON input with custom @attributes mapping (non-default field names)
+@source(type='http',
+        receiver.url='http://0.0.0.0:8110/TC15_FormatTransform/JsonCustomStream',
+        @map(type='json',
+             @attributes(productId='$.item.ref',
+                         name='$.item.label',
+                         price='$.item.cost')))
+define stream JsonCustomInputStream (productId string, name string, price double);
+
+-- Path 3: CSV input with default column-order mapping
+@source(type='http',
+        receiver.url='http://0.0.0.0:8110/TC15_FormatTransform/CsvStream',
+        @map(type='csv'))
+define stream CsvInputStream (productId string, name string, price double);
+
+@sink(type='log', prefix='[TC15-XML-IN]')
+define stream XmlLogStream (productId string, name string, price double);
+
+@sink(type='log', prefix='[TC15-JSON-CUSTOM]')
+define stream JsonCustomLogStream (productId string, name string, price double);
+
+@sink(type='log', prefix='[TC15-CSV-IN]')
+define stream CsvLogStream (productId string, name string, price double);
+
+@PrimaryKey('productId')
+define table FormatTestTable (productId string, name string, price double, sourceFormat string);
+
+@info(name='xml-in-log')
+from XmlInputStream
+select productId, name, price
+insert into XmlLogStream;
+
+@info(name='xml-to-table')
+from XmlInputStream
+select productId, name, price, 'xml' as sourceFormat
+update or insert into FormatTestTable
+    set FormatTestTable.name = name, FormatTestTable.price = price,
+        FormatTestTable.sourceFormat = sourceFormat
+    on FormatTestTable.productId == productId;
+
+@info(name='json-custom-log')
+from JsonCustomInputStream
+select productId, name, price
+insert into JsonCustomLogStream;
+
+@info(name='json-custom-to-table')
+from JsonCustomInputStream
+select productId, name, price, 'json-custom' as sourceFormat
+update or insert into FormatTestTable
+    set FormatTestTable.name = name, FormatTestTable.price = price,
+        FormatTestTable.sourceFormat = sourceFormat
+    on FormatTestTable.productId == productId;
+
+@info(name='csv-in-log')
+from CsvInputStream
+select productId, name, price
+insert into CsvLogStream;
+
+@info(name='csv-to-table')
+from CsvInputStream
+select productId, name, price, 'csv' as sourceFormat
+update or insert into FormatTestTable
+    set FormatTestTable.name = name, FormatTestTable.price = price,
+        FormatTestTable.sourceFormat = sourceFormat
+    on FormatTestTable.productId == productId;

@@ -1,0 +1,13 @@
+# macOS
+.DS_Store
+
+# Editor
+.idea/
+.vscode/
+*.swp
+
+# Runtime artifacts (created by tests)
+/tmp/si-test-sales.csv
+
+# Local config overrides (never commit real SI_HOME paths)
+config.env.local

@@ -1,0 +1,39 @@
+@App:name('TC05_PatternDetect')
+@App:description('Sequential pattern: login followed by large transfer within 60 seconds')
+
+/*
+Tests: pattern operator (->), within clause, multi-stream event correlation.
+Port : 8103 (two paths: /LoginStream and /TransferStream)
+Deps : none
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8103/TC05_PatternDetect/LoginStream',
+        @map(type='json'))
+define stream LoginStream (userId string, ipAddress string);
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8103/TC05_PatternDetect/TransferStream',
+        @map(type='json'))
+define stream TransferStream (userId string, amount double);
+
+@sink(type='log', prefix='[TC05-ALERT]')
+define stream SuspiciousActivityStream (userId string, loginIp string, transferAmount double);
+
+@PrimaryKey('userId')
+define table AlertTable (userId string, loginIp string, transferAmount double);
+
+-- Pattern: for every login, watch for a transfer > 5000 for the same user within 60 sec
+@info(name='suspicious-pattern')
+from every e1=LoginStream
+     -> e2=TransferStream[e1.userId == e2.userId and e2.amount > 5000.0]
+within 60 sec
+select e1.userId as userId, e1.ipAddress as loginIp, e2.amount as transferAmount
+insert into SuspiciousActivityStream;
+
+@info(name='alert-to-table')
+from SuspiciousActivityStream
+select userId, loginIp, transferAmount
+update or insert into AlertTable
+    set AlertTable.loginIp = loginIp, AlertTable.transferAmount = transferAmount
+    on AlertTable.userId == userId;

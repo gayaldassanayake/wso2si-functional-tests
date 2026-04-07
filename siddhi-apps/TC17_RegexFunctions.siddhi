@@ -1,0 +1,76 @@
+@App:name('TC17_RegexFunctions')
+@App:description('Regex extension: regex:find(), regex:matches(), regex:group() for pattern extraction')
+
+/*
+Tests: regex:find(), regex:matches(), regex:group() for log parsing and validation.
+Port : 8112
+Deps : none
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8112/TC17_RegexFunctions/LogLineStream',
+        @map(type='json'))
+define stream LogLineStream (lineId string, logLine string);
+
+@sink(type='log', prefix='[TC17-EMAIL]')
+define stream EmailMatchStream (lineId string, logLine string, hasEmail bool, emailAddr string);
+
+@sink(type='log', prefix='[TC17-IP]')
+define stream IpMatchStream (lineId string, logLine string, hasIp bool, ipAddr string);
+
+@sink(type='log', prefix='[TC17-SEVERITY]')
+define stream SeverityStream (lineId string, severity string);
+
+@PrimaryKey('lineId')
+define table RegexResultTable (lineId string, hasEmail bool, emailAddr string,
+                                 hasIp bool, ipAddr string, severity string);
+
+-- Extract email addresses from log lines
+@info(name='email-extract')
+from LogLineStream
+select lineId, logLine,
+       regex:find('[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}', logLine) as hasEmail,
+       ifThenElse(regex:find('[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}', logLine),
+                  regex:group('[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}', logLine, 0),
+                  'none') as emailAddr
+insert into EmailMatchStream;
+
+-- Extract IP addresses from log lines
+@info(name='ip-extract')
+from LogLineStream
+select lineId, logLine,
+       regex:find('\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b', logLine) as hasIp,
+       ifThenElse(regex:find('\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b', logLine),
+                  regex:group('\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b', logLine, 1),
+                  'none') as ipAddr
+insert into IpMatchStream;
+
+-- Extract severity level from structured log lines: [INFO], [WARN], [ERROR]
+@info(name='severity-extract')
+from LogLineStream
+select lineId,
+       ifThenElse(regex:matches('.*\[ERROR\].*', logLine), 'ERROR',
+           ifThenElse(regex:matches('.*\[WARN\].*', logLine), 'WARN',
+               ifThenElse(regex:matches('.*\[INFO\].*', logLine), 'INFO', 'UNKNOWN'))) as severity
+insert into SeverityStream;
+
+-- Store combined results
+@info(name='regex-to-table')
+from LogLineStream
+select lineId,
+       regex:find('[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}', logLine) as hasEmail,
+       ifThenElse(regex:find('[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}', logLine),
+                  regex:group('[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}', logLine, 0),
+                  'none') as emailAddr,
+       regex:find('\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b', logLine) as hasIp,
+       ifThenElse(regex:find('\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b', logLine),
+                  regex:group('\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b', logLine, 1),
+                  'none') as ipAddr,
+       ifThenElse(regex:matches('.*\[ERROR\].*', logLine), 'ERROR',
+           ifThenElse(regex:matches('.*\[WARN\].*', logLine), 'WARN',
+               ifThenElse(regex:matches('.*\[INFO\].*', logLine), 'INFO', 'UNKNOWN'))) as severity
+update or insert into RegexResultTable
+    set RegexResultTable.hasEmail = hasEmail, RegexResultTable.emailAddr = emailAddr,
+        RegexResultTable.hasIp = hasIp, RegexResultTable.ipAddr = ipAddr,
+        RegexResultTable.severity = severity
+    on RegexResultTable.lineId == lineId;

@@ -1,0 +1,21 @@
+@App:name('TC01_PassThrough')
+@App:description('Baseline: HTTP JSON source -> log sink pass-through')
+
+/*
+Tests: Basic HTTP event ingestion and log sink output.
+Port : 8099
+Deps : none
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8099/TC01_PassThrough/InputStream',
+        @map(type='json'))
+define stream InputStream (symbol string, price double, volume long);
+
+@sink(type='log', prefix='[TC01]')
+define stream OutputStream (symbol string, price double, volume long);
+
+@info(name='passthrough')
+from InputStream
+select symbol, price, volume
+insert into OutputStream;

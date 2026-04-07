@@ -1,0 +1,43 @@
+@App:name('TC03_WindowAggregation')
+@App:description('Window operations: time window and length-batch window with sum/avg/count')
+
+/*
+Tests: #window.time(), #window.lengthBatch(), sum(), avg(), count(), group by.
+Port : 8101
+Deps : none
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8101/TC03_WindowAggregation/SensorStream',
+        @map(type='json'))
+define stream SensorStream (sensorId string, reading double);
+
+@sink(type='log', prefix='[TC03-TIME]')
+define stream TimeWindowOutput (sensorId string, avgReading double, eventCount long);
+
+@sink(type='log', prefix='[TC03-BATCH]')
+define stream BatchWindowOutput (totalReading double, eventCount long);
+
+@PrimaryKey('windowType')
+define table WindowResultTable (windowType string, result double, eventCount long);
+
+-- Sliding 10-second time window: reports average per sensorId on every event
+@info(name='time-window-query')
+from SensorStream#window.time(10 sec)
+select sensorId, avg(reading) as avgReading, count() as eventCount
+group by sensorId
+insert into TimeWindowOutput;
+
+-- Tumbling length-batch window of 3: fires after every 3 events with sum
+@info(name='length-batch-query')
+from SensorStream#window.lengthBatch(3)
+select sum(reading) as totalReading, count() as eventCount
+insert into BatchWindowOutput;
+
+-- Store batch results for Store API verification
+@info(name='batch-to-table')
+from SensorStream#window.lengthBatch(3)
+select 'batch' as windowType, sum(reading) as result, count() as eventCount
+update or insert into WindowResultTable
+    set WindowResultTable.result = result, WindowResultTable.eventCount = eventCount
+    on WindowResultTable.windowType == windowType;

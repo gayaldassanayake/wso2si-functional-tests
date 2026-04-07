@@ -1,0 +1,67 @@
+@App:name('TC18_ErrorHandling')
+@App:description('Error routing: valid vs invalid events separated by numeric regex validation')
+
+/*
+Tests: regex:matches() for type validation, routing valid/invalid events to separate streams
+       and tables, handling non-numeric strings gracefully.
+Port : 8113
+Deps : none
+
+Note: cast(string, 'double') does not return null for invalid strings in this SI version;
+      regex:matches is used instead to detect whether the string represents a valid number.
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8113/TC18_ErrorHandling/InputStream',
+        @map(type='json'))
+define stream InputStream (eventId string, numericValue string, category string);
+
+-- Intermediate stream after numeric classification
+define stream ClassifiedStream (eventId string, numericValue string, category string, isNumeric bool);
+
+@sink(type='log', prefix='[TC18-VALID]')
+define stream ValidOutputStream (eventId string, parsedValue double, category string);
+
+@sink(type='log', prefix='[TC18-INVALID]')
+define stream InvalidOutputStream (eventId string, rawValue string, category string);
+
+@PrimaryKey('eventId')
+define table ValidEventTable (eventId string, parsedValue double, category string);
+
+@PrimaryKey('eventId')
+define table InvalidEventTable (eventId string, rawValue string, category string);
+
+-- Classify: check if numericValue matches a valid number pattern (integer or decimal, optional sign/exponent)
+@info(name='classify')
+from InputStream
+select eventId, numericValue, category,
+       regex:matches('^[-+]?\d+(\.\d+)?([eE][-+]?\d+)?$', numericValue) as isNumeric
+insert into ClassifiedStream;
+
+-- Route valid numeric events
+@info(name='valid-events')
+from ClassifiedStream[isNumeric == true]
+select eventId, cast(numericValue, 'double') as parsedValue, category
+insert into ValidOutputStream;
+
+@info(name='valid-to-table')
+from ClassifiedStream[isNumeric == true]
+select eventId, cast(numericValue, 'double') as parsedValue, category
+update or insert into ValidEventTable
+    set ValidEventTable.parsedValue = parsedValue,
+        ValidEventTable.category = category
+    on ValidEventTable.eventId == eventId;
+
+-- Route invalid (non-numeric) events
+@info(name='invalid-events')
+from ClassifiedStream[isNumeric == false]
+select eventId, numericValue as rawValue, category
+insert into InvalidOutputStream;
+
+@info(name='invalid-to-table')
+from ClassifiedStream[isNumeric == false]
+select eventId, numericValue as rawValue, category
+update or insert into InvalidEventTable
+    set InvalidEventTable.rawValue = rawValue,
+        InvalidEventTable.category = category
+    on InvalidEventTable.eventId == eventId;

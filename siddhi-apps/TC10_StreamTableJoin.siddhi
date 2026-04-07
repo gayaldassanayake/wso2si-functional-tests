@@ -1,0 +1,68 @@
+@App:name('TC10_StreamTableJoin')
+@App:description('Stream-to-table join for data enrichment')
+
+/*
+Tests: join stream with stored table data, enrichment pattern, conditional join,
+       attribute selection from both stream and table.
+Port : 8107 (two paths: /ProductCatalogStream and /OrderStream)
+Deps : none
+*/
+
+-- Populate the product catalog table
+@source(type='http',
+        receiver.url='http://0.0.0.0:8107/TC10_StreamTableJoin/ProductCatalogStream',
+        @map(type='json'))
+define stream ProductCatalogStream (productId string, productName string, category string, unitPrice double);
+
+-- Orders arrive as a stream to be enriched with catalog data
+@source(type='http',
+        receiver.url='http://0.0.0.0:8107/TC10_StreamTableJoin/OrderStream',
+        @map(type='json'))
+define stream OrderStream (orderId string, productId string, quantity int);
+
+@PrimaryKey('productId')
+define table ProductCatalogTable (productId string, productName string, category string, unitPrice double);
+
+@sink(type='log', prefix='[TC10-ENRICHED]')
+define stream EnrichedOrderStream (orderId string, productId string, productName string,
+                                    category string, quantity int, totalPrice double);
+
+@sink(type='log', prefix='[TC10-UNKNOWN]')
+define stream UnknownProductStream (orderId string, productId string, quantity int);
+
+@PrimaryKey('orderId')
+define table EnrichedOrderTable (orderId string, productId string, productName string,
+                                   category string, quantity int, totalPrice double);
+
+-- Populate catalog table
+@info(name='catalog-ingest')
+from ProductCatalogStream
+select productId, productName, category, unitPrice
+update or insert into ProductCatalogTable
+    set ProductCatalogTable.productName = productName,
+        ProductCatalogTable.category = category,
+        ProductCatalogTable.unitPrice = unitPrice
+    on ProductCatalogTable.productId == productId;
+
+-- Enrich orders: join with catalog to get product details and compute total price
+@info(name='enrich-order')
+from OrderStream as o join ProductCatalogTable as p
+on o.productId == p.productId
+select o.orderId, o.productId, p.productName, p.category,
+       o.quantity, o.quantity * p.unitPrice as totalPrice
+insert into EnrichedOrderStream;
+
+-- Store enriched orders
+@info(name='store-enriched')
+from EnrichedOrderStream
+select orderId, productId, productName, category, quantity, totalPrice
+insert into EnrichedOrderTable;
+
+-- Flag orders for unknown products (not in catalog)
+@info(name='unknown-products')
+from OrderStream as o
+left outer join ProductCatalogTable as p
+on o.productId == p.productId
+select o.orderId, o.productId, o.quantity
+having p.productId is null
+insert into UnknownProductStream;

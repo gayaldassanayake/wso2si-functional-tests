@@ -1,0 +1,44 @@
+@App:name('TC13_Sequence')
+@App:description('Sequence detection: consecutive temperature increases from the same sensor')
+
+/*
+Tests: sequence operator (,), consecutive event detection (stricter than pattern ->),
+       attribute comparison across sequence events.
+Port : 8108
+Deps : none
+
+Note: In Siddhi, sequence uses comma (,) - the second event must immediately follow the first
+      on the same stream. Unlike pattern (->), no other events may intervene.
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8108/TC13_Sequence/TemperatureStream',
+        @map(type='json'))
+define stream TemperatureStream (sensorId string, temperature double, location string);
+
+@sink(type='log', prefix='[TC13-RISE]')
+define stream TempRiseAlertStream (sensorId string, location string,
+                                    initialTemp double, finalTemp double, rise double);
+
+@PrimaryKey('sensorId')
+define table TempRiseTable (sensorId string, location string,
+                              initialTemp double, finalTemp double, rise double);
+
+-- Sequence: detect a sensor reading immediately followed by a higher reading (>= 5 degrees rise)
+@info(name='temp-sequence')
+from every e1=TemperatureStream,
+           e2=TemperatureStream[e1.sensorId == sensorId and temperature >= e1.temperature + 5.0]
+select e1.sensorId as sensorId, e1.location as location,
+       e1.temperature as initialTemp, e2.temperature as finalTemp,
+       e2.temperature - e1.temperature as rise
+insert into TempRiseAlertStream;
+
+@info(name='rise-to-table')
+from TempRiseAlertStream
+select sensorId, location, initialTemp, finalTemp, rise
+update or insert into TempRiseTable
+    set TempRiseTable.location = location,
+        TempRiseTable.initialTemp = initialTemp,
+        TempRiseTable.finalTemp = finalTemp,
+        TempRiseTable.rise = rise
+    on TempRiseTable.sensorId == sensorId;

@@ -1,0 +1,32 @@
+@App:name('TC12_FileSource')
+@App:description('File source in LINE/tailing mode: reads new lines as events')
+
+/*
+Tests: file source (mode=LINE, tailing=true), CSV default mapping, real-time file tail.
+Deps : File at /tmp/si-test-sales.csv (created by test script before deploy)
+*/
+
+@source(type='file',
+        mode='LINE',
+        file.uri='file:/tmp/si-test-sales.csv',
+        tailing='true',
+        @map(type='csv'))
+define stream FileSalesStream (name string, amount double);
+
+@sink(type='log', prefix='[TC12-FILE]')
+define stream FileSalesLogStream (name string, amount double);
+
+@PrimaryKey('name')
+define table FileSalesTable (name string, totalAmount double, eventCount long);
+
+@info(name='file-to-log')
+from FileSalesStream
+select name, amount
+insert into FileSalesLogStream;
+
+@info(name='file-to-aggregate-table')
+from FileSalesStream#window.lengthBatch(1)
+select name, sum(amount) as totalAmount, count() as eventCount
+update or insert into FileSalesTable
+    set FileSalesTable.totalAmount = totalAmount, FileSalesTable.eventCount = eventCount
+    on FileSalesTable.name == name;

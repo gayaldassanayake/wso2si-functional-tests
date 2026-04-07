@@ -1,0 +1,57 @@
+@App:name('TC04_FilterTransform')
+@App:description('Filter predicates and str/math function transformations')
+
+/*
+Tests: filter conditions, str:upper(), str:lower(), str:concat(), math:round(), boundary conditions.
+Port : 8102
+Deps : none
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8102/TC04_FilterTransform/OrderStream',
+        @map(type='json'))
+define stream OrderStream (orderId string, product string, qty int, unitPrice double);
+
+@sink(type='log', prefix='[TC04-HIGH]')
+define stream HighValueOrderStream (orderId string, product string, total long, tag string);
+
+@sink(type='log', prefix='[TC04-LOW]')
+define stream LowValueOrderStream (orderId string, product string, total double);
+
+@PrimaryKey('orderId')
+define table HighValueTable (orderId string, product string, total long, tag string);
+
+@PrimaryKey('orderId')
+define table LowValueTable (orderId string, product string, total double);
+
+-- Filter: orders with total > 100 (apply string + math transforms)
+@info(name='high-value')
+from OrderStream[qty * unitPrice > 100.0]
+select orderId,
+       str:upper(product) as product,
+       math:round(qty * unitPrice) as total,
+       str:concat('HIGH-', orderId) as tag
+insert into HighValueOrderStream;
+
+@info(name='high-to-table')
+from OrderStream[qty * unitPrice > 100.0]
+select orderId,
+       str:upper(product) as product,
+       math:round(qty * unitPrice) as total,
+       str:concat('HIGH-', orderId) as tag
+insert into HighValueTable;
+
+-- Filter: orders with total <= 100 (apply str:lower)
+@info(name='low-value')
+from OrderStream[qty * unitPrice <= 100.0]
+select orderId,
+       str:lower(product) as product,
+       qty * unitPrice as total
+insert into LowValueOrderStream;
+
+@info(name='low-to-table')
+from OrderStream[qty * unitPrice <= 100.0]
+select orderId,
+       str:lower(product) as product,
+       qty * unitPrice as total
+insert into LowValueTable;

@@ -1,0 +1,40 @@
+@App:name('TC11_CDCPolling')
+@App:description('CDC polling mode: detect MySQL table changes in real-time')
+
+/*
+Tests: CDC source in polling mode, keyvalue mapping, real-time database change capture.
+Deps : MySQL (Docker Compose), MySQL JDBC JAR in $SI_HOME/lib/
+       Table 'cdc_test_table' must exist (created by setup.sh)
+*/
+
+@source(type='cdc',
+        url='jdbc:mysql://localhost:3306/si_test_db?useSSL=false&allowPublicKeyRetrieval=true',
+        mode='polling',
+        jdbc.driver.name='com.mysql.cj.jdbc.Driver',
+        polling.column='updated_at',
+        polling.interval='2',
+        username='sitest',
+        password='sitest123',
+        table.name='cdc_test_table',
+        @map(type='keyvalue'))
+define stream CDCPollingStream (item_id string, item_name string, quantity int, updated_at string);
+
+@sink(type='log', prefix='[TC11-CDC]')
+define stream CDCLogStream (item_id string, item_name string, quantity int, updated_at string);
+
+@PrimaryKey('item_id')
+define table CDCCapturedTable (item_id string, item_name string, quantity int, updated_at string);
+
+@info(name='cdc-to-log')
+from CDCPollingStream
+select item_id, item_name, quantity, updated_at
+insert into CDCLogStream;
+
+@info(name='cdc-to-table')
+from CDCPollingStream
+select item_id, item_name, quantity, updated_at
+update or insert into CDCCapturedTable
+    set CDCCapturedTable.item_name = item_name,
+        CDCCapturedTable.quantity = quantity,
+        CDCCapturedTable.updated_at = updated_at
+    on CDCCapturedTable.item_id == item_id;

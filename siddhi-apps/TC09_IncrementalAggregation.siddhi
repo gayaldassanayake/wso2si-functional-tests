@@ -1,0 +1,48 @@
+@App:name('TC09_IncrementalAggregation')
+@App:description('Incremental time-series aggregation with per-granularity retrieval')
+
+/*
+Tests: define aggregation, aggregate by timestamp every sec...min, within/per join retrieval.
+Port : 8106 (two paths: /SalesStream and /QueryStream)
+Deps : none (in-memory aggregation store)
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8106/TC09_IncrementalAggregation/SalesStream',
+        @map(type='json'))
+define stream SalesStream (name string, amount double, timestamp long);
+
+-- Aggregation trigger stream: provides the time range for retrieval
+@source(type='http',
+        receiver.url='http://0.0.0.0:8106/TC09_IncrementalAggregation/QueryStream',
+        @map(type='json'))
+define stream QueryStream (startTime string, endTime string, name string);
+
+@sink(type='log', prefix='[TC09-RESULT]')
+define stream AggResultStream (name string, total double, average double, minAmount double, maxAmount double);
+
+@sink(type='log', prefix='[TC09-INPUT]')
+define stream SalesLogStream (name string, amount double, timestamp long);
+
+-- Incremental aggregation: builds per-second and per-minute snapshots
+define aggregation SalesAggregation
+from SalesStream
+select name, sum(amount) as total, avg(amount) as average,
+       min(amount) as minAmount, max(amount) as maxAmount
+group by name
+aggregate by timestamp every sec...min;
+
+-- Log incoming events for test verification
+@info(name='log-input')
+from SalesStream
+select name, amount, timestamp
+insert into SalesLogStream;
+
+-- Retrieve aggregation using dynamic within range from QueryStream
+@info(name='retrieve-agg')
+from QueryStream as q join SalesAggregation as a
+on a.name == q.name
+within q.startTime, q.endTime
+per 'seconds'
+select a.name, a.total, a.average, a.minAmount, a.maxAmount
+insert into AggResultStream;
