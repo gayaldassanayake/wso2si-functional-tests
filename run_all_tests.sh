@@ -77,12 +77,46 @@ fi
 
 echo ""
 
+# ─── Pre-flight: check optional SI-side JARs before deploying ────────────────
+# Deploying an app whose required JARs are absent causes SI to fail that app,
+# which can destabilise other running apps (store API returns "currently shut
+# down").  Guard the deploy — not just the test — so only deployable apps land
+# in SI's hot-deploy directory.
+
+_has_mysql_jdbc() {
+    ls "${SI_HOME}/lib/mysql-connector"*.jar 2>/dev/null | grep -q .
+}
+
+_has_kafka_jars() {
+    # Kafka OSGi bundles placed in SI lib by the jartobundle.sh conversion step
+    ls "${SI_HOME}/lib/"*kafka-clients*.jar 2>/dev/null | grep -q . ||
+    ls "${SI_HOME}/lib/"*kafka_2.*.jar      2>/dev/null | grep -q .
+}
+
 # ─── Deploy Siddhi apps ───────────────────────────────────────────────────────
 if [[ "$SKIP_DEPLOY" == "false" && ${#SPECIFIC_TCS[@]} -eq 0 ]]; then
     echo "=== Deploying Siddhi apps ==="
     bash "${SCRIPT_DIR}/scripts/deploy.sh" --core
-    [[ "$WITH_KAFKA" == "true" ]] && bash "${SCRIPT_DIR}/scripts/deploy.sh" --kafka
-    [[ "$WITH_MYSQL" == "true" ]] && bash "${SCRIPT_DIR}/scripts/deploy.sh" --mysql
+
+    if [[ "$WITH_KAFKA" == "true" ]]; then
+        if _has_kafka_jars; then
+            bash "${SCRIPT_DIR}/scripts/deploy.sh" --kafka
+        else
+            echo -e "${YELLOW}[WARN]${NC} Kafka OSGi JARs not found in ${SI_HOME}/lib/ — skipping TC08 deployment."
+            echo "       Convert the Kafka client JARs with jartobundle.sh and place them in \${SI_HOME}/lib/, then restart SI."
+            WITH_KAFKA=false
+        fi
+    fi
+
+    if [[ "$WITH_MYSQL" == "true" ]]; then
+        if _has_mysql_jdbc; then
+            bash "${SCRIPT_DIR}/scripts/deploy.sh" --mysql
+        else
+            echo -e "${YELLOW}[WARN]${NC} MySQL JDBC driver not found in ${SI_HOME}/lib/ — skipping TC07/TC11 deployment."
+            echo "       Download mysql-connector-j-*.jar and place it in \${SI_HOME}/lib/, then restart SI."
+            WITH_MYSQL=false
+        fi
+    fi
     echo ""
 elif [[ ${#SPECIFIC_TCS[@]} -gt 0 && "$SKIP_DEPLOY" == "false" ]]; then
     echo "=== Deploying selected apps ==="
