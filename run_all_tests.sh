@@ -89,8 +89,7 @@ _has_mysql_jdbc() {
 
 _has_kafka_jars() {
     # Kafka OSGi bundles placed in SI lib by the jartobundle.sh conversion step
-    # jartobundle renames hyphens to underscores: kafka-clients → kafka_clients
-    ls "${SI_HOME}/lib/"*kafka*clients*.jar 2>/dev/null | grep -q . ||
+    ls "${SI_HOME}/lib/"*kafka-clients*.jar 2>/dev/null | grep -q . ||
     ls "${SI_HOME}/lib/"*kafka_2.*.jar      2>/dev/null | grep -q .
 }
 
