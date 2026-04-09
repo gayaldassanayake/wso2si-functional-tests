@@ -77,51 +77,25 @@ test-suite/
 
 ## Quick Start
 
-The fastest path to running the 15 core tests (no Docker required):
-
 ```bash
-# 1. Clone or navigate to the test suite
-cd /path/to/si-4.3.2-release/test-suite
-
-# 2. Set your SI installation path
+# 1. Set your SI installation path
 export SI_HOME=/path/to/wso2si-4.3.2
 
-# 3. Start the SI server (in a separate terminal)
+# 2. Start Docker infrastructure (Kafka + Zookeeper + MySQL)
+./scripts/setup.sh --all
+
+# 3. Copy the MySQL JDBC driver and Kafka OSGi JARs into SI
+#    MySQL: download mysql-connector-j-8.x.x.jar from https://dev.mysql.com/downloads/connector/j/
+cp mysql-connector-j-8.x.x.jar ${SI_HOME}/lib/
+#    Kafka: convert Kafka 2.11 client JARs to OSGi using jartobundle.sh, then copy to lib/
+cp kafka-clients-*.jar ${SI_HOME}/lib/
+
+# 4. Start the SI server (in a separate terminal)
 ${SI_HOME}/bin/server.sh
 # Wait until you see: "WSO2 Streaming Integrator started"
 
-# 4. Deploy all core Siddhi apps and run the tests
-./run_all_tests.sh
-```
-
-Sample output:
-
-```
-WSO2 SI 4.3.2 Functional Test Suite
-SI_HOME: /path/to/wso2si-4.3.2
-
-[OK] SI server is running on port 9090
-[OK] Store API is available on port 7070
-
-=== Deploying Siddhi apps ===
-  Copied: TC01_PassThrough.siddhi
-  ...
-Deployed 15 app(s). Waiting 8s for SI to pick them up...
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TC01: Baseline HTTP pass-through
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[TC01 INFO]  T1: POST event and verify log output
-[PASS] T1: event logged with [TC01] prefix
-[PASS] T2: second event logged
-[PASS] T3: rapid events processed
-=== TC01: 3/3 PASSED ===
-
-...
-
-════════════════════════════════════════════════════════════════
-FINAL SUMMARY: 15/15 PASSED
-════════════════════════════════════════════════════════════════
+# 5. Run the full test suite (all 18 test cases including Kafka and MySQL)
+./run_all_tests.sh --all
 ```
 
 ---
