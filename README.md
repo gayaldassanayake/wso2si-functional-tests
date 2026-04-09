@@ -1,4 +1,4 @@
-# WSO2 Streaming Integrator 4.3.2 — Functional Test Suite
+# WSO2 Streaming Integrator — Functional Test Suite
 
 A self-contained regression test suite for WSO2 Streaming Integrator (SI) 4.3.2. It covers 18 functional areas using Siddhi apps, Docker Compose for infrastructure dependencies, and shell scripts that send events, scan SI logs, and query the Store API to produce clear PASS/FAIL output.
 
