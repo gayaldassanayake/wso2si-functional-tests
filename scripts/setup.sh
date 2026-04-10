@@ -50,7 +50,7 @@ if [[ "$WITH_MYSQL" == "true" ]]; then
 fi
 
 echo "Starting services: ${SERVICES[*]}"
-docker compose -f "${COMPOSE_FILE}" up -d "${SERVICES[@]}"
+docker compose -f "${COMPOSE_FILE}" up -d --force-recreate "${SERVICES[@]}"
 
 # ─── Wait for healthy ────────────────────────────────────────────────────────
 wait_healthy() {
