@@ -8,7 +8,9 @@
 #   ./run_all_tests.sh --with-helm      # Core + Helm chart Gateway API tests (TC19-TC27)
 #   ./run_all_tests.sh --with-k8s       # Core + Kubernetes live Gateway API tests (TC28-TC34)
 #   ./run_all_tests.sh --all            # All test cases
-#   ./run_all_tests.sh --all --skip-helm  # All test cases except Helm chart tests
+#   ./run_all_tests.sh --all --skip-helm  # All except Helm chart tests (also skips K8s tests)
+#   ./run_all_tests.sh --all --skip-k8s   # All except Kubernetes live tests
+#   ./run_all_tests.sh --all --skip-helm --skip-k8s  # All except Helm and K8s tests
 #   ./run_all_tests.sh --skip-deploy    # Skip deploying apps (already deployed)
 #   ./run_all_tests.sh TC01 TC04 TC06   # Run specific test cases
 #
@@ -29,6 +31,7 @@ WITH_HELM=false
 WITH_K8S=false
 SKIP_DEPLOY=false
 SKIP_HELM=false
+SKIP_K8S=false
 SPECIFIC_TCS=()
 
 for arg in "$@"; do
@@ -39,6 +42,7 @@ for arg in "$@"; do
         --with-k8s)    WITH_K8S=true ;;
         --all)         WITH_KAFKA=true; WITH_MYSQL=true; WITH_HELM=true; WITH_K8S=true ;;
         --skip-helm)   SKIP_HELM=true ;;
+        --skip-k8s)    SKIP_K8S=true ;;
         --skip-deploy) SKIP_DEPLOY=true ;;
         TC*)           SPECIFIC_TCS+=("$arg") ;;
         --help|-h)
@@ -289,7 +293,11 @@ else
     fi
 
     if [[ "$WITH_K8S" == "true" ]]; then
-        if ! command -v kubectl >/dev/null 2>&1; then
+        if [[ "$SKIP_HELM" == "true" ]]; then
+            echo -e "${YELLOW}[SKIP]${NC} Kubernetes live tests skipped — Helm chart tests are skipped (TC28-TC34 depend on chart correctness)."
+        elif [[ "$SKIP_K8S" == "true" ]]; then
+            echo -e "${YELLOW}[SKIP]${NC} Kubernetes live tests skipped (--skip-k8s)."
+        elif ! command -v kubectl >/dev/null 2>&1; then
             echo -e "${YELLOW}[WARN]${NC} 'kubectl' not found — skipping Kubernetes live tests (TC28-TC34)."
         elif ! kubectl cluster-info >/dev/null 2>&1; then
             echo -e "${YELLOW}[WARN]${NC} No Kubernetes cluster reachable — skipping TC28-TC34."

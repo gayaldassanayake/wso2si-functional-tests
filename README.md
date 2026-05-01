@@ -341,10 +341,11 @@ To exclude Helm tests from a run that would otherwise include them (e.g. `--all`
 
 ```bash
 # Run everything except the Helm chart tests
+# Note: also automatically skips K8s live tests (TC28-TC34 depend on chart correctness)
 ./run_all_tests.sh --all --skip-helm
 
-# K8s live tests only, no Helm tests
-./run_all_tests.sh --with-k8s --skip-helm
+# Helm and K8s tests both explicitly skipped
+./run_all_tests.sh --all --skip-helm --skip-k8s
 ```
 
 Run a single Helm test case directly (no SI server needed):
@@ -361,6 +362,15 @@ Set up the cluster first (see [Kubernetes Setup](#kubernetes-setup-tc28tc34)), t
 ```bash
 ./run_all_tests.sh --with-k8s
 ```
+
+To skip K8s tests explicitly, use `--skip-k8s`:
+
+```bash
+# All tests except K8s live tests
+./run_all_tests.sh --all --skip-k8s
+```
+
+**Automatic skip:** if `--skip-helm` is set, K8s tests are skipped automatically even when `--with-k8s` is present — the live tests deploy and validate the same chart, so skipping chart tests implies skipping the live tests too.
 
 Run a single K8s test directly:
 
