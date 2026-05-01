@@ -342,6 +342,172 @@ assert_helm_template_fails() {
     fi
 }
 
+# ─── Kubernetes live-cluster helpers ─────────────────────────────────────────
+
+# Assert a kubectl-gettable resource exists in the test namespace.
+assert_k8s_resource_exists() {
+    local description="$1"
+    local resource="$2"           # e.g. "gateway/si-gateway" or "statefulset"
+    local namespace="${3:-${K8S_TEST_NAMESPACE}}"
+    if kubectl get "${resource}" -n "${namespace}" >/dev/null 2>&1; then
+        log_pass "${description}"
+        return 0
+    else
+        log_fail "${description}: ${resource} not found in namespace ${namespace}"
+        return 1
+    fi
+}
+
+# Poll until a resource exists, then return 0; return 1 on timeout.
+wait_for_k8s_resource() {
+    local resource="$1"
+    local namespace="${2:-${K8S_TEST_NAMESPACE}}"
+    local timeout="${3:-${K8S_RESOURCE_TIMEOUT:-60}}"
+    local elapsed=0
+    while (( elapsed < timeout )); do
+        if kubectl get "${resource}" -n "${namespace}" >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 5; (( elapsed += 5 )) || true
+    done
+    return 1
+}
+
+# Read a jsonpath expression from a resource.
+k8s_jsonpath() {
+    local resource="$1"
+    local jsonpath="$2"
+    local namespace="${3:-${K8S_TEST_NAMESPACE}}"
+    kubectl get "${resource}" -n "${namespace}" -o "jsonpath=${jsonpath}" 2>/dev/null
+}
+
+# Assert a jsonpath value equals an expected string.
+assert_k8s_field() {
+    local description="$1"
+    local resource="$2"
+    local jsonpath="$3"
+    local expected="$4"
+    local namespace="${5:-${K8S_TEST_NAMESPACE}}"
+    local actual
+    actual=$(k8s_jsonpath "${resource}" "${jsonpath}" "${namespace}")
+    if [[ "${actual}" == "${expected}" ]]; then
+        log_pass "${description}"
+        return 0
+    else
+        log_fail "${description}: expected '${expected}', got '${actual}'"
+        return 1
+    fi
+}
+
+# Assert a jsonpath value matches a regex pattern.
+assert_k8s_field_matches() {
+    local description="$1"
+    local resource="$2"
+    local jsonpath="$3"
+    local pattern="$4"
+    local namespace="${5:-${K8S_TEST_NAMESPACE}}"
+    local actual
+    actual=$(k8s_jsonpath "${resource}" "${jsonpath}" "${namespace}")
+    if echo "${actual}" | grep -qE "${pattern}"; then
+        log_pass "${description}"
+        return 0
+    else
+        log_fail "${description}: '${actual}' does not match pattern '${pattern}'"
+        return 1
+    fi
+}
+
+# Poll until a resource status condition type reaches status=True.
+wait_for_k8s_condition() {
+    local resource="$1"
+    local condition_type="$2"
+    local namespace="${3:-${K8S_TEST_NAMESPACE}}"
+    local timeout="${4:-${K8S_GATEWAY_TIMEOUT:-120}}"
+    local elapsed=0
+    while (( elapsed < timeout )); do
+        local status
+        status=$(kubectl get "${resource}" -n "${namespace}" \
+            -o "jsonpath={.status.conditions[?(@.type=='${condition_type}')].status}" 2>/dev/null)
+        [[ "${status}" == "True" ]] && return 0
+        sleep 10; (( elapsed += 10 )) || true
+    done
+    return 1
+}
+
+# Assert a resource condition is True (waiting up to timeout seconds).
+assert_k8s_condition() {
+    local description="$1"
+    local resource="$2"
+    local condition_type="$3"
+    local namespace="${4:-${K8S_TEST_NAMESPACE}}"
+    local timeout="${5:-${K8S_GATEWAY_TIMEOUT:-120}}"
+    if wait_for_k8s_condition "${resource}" "${condition_type}" "${namespace}" "${timeout}"; then
+        log_pass "${description}"
+        return 0
+    else
+        local reason
+        reason=$(kubectl get "${resource}" -n "${namespace}" \
+            -o "jsonpath={.status.conditions[?(@.type=='${condition_type}')].reason}" 2>/dev/null)
+        log_fail "${description}: condition ${condition_type} not True after ${timeout}s (reason: ${reason:-unknown})"
+        return 1
+    fi
+}
+
+# Poll until a StatefulSet has all replicas ready.
+wait_for_statefulset_ready() {
+    local name="$1"
+    local namespace="${2:-${K8S_TEST_NAMESPACE}}"
+    local timeout="${3:-${K8S_POD_TIMEOUT:-360}}"
+    local replicas="${4:-1}"
+    local elapsed=0
+    while (( elapsed < timeout )); do
+        local ready
+        ready=$(kubectl get statefulset "${name}" -n "${namespace}" \
+            -o jsonpath='{.status.readyReplicas}' 2>/dev/null)
+        [[ "${ready}" == "${replicas}" ]] && return 0
+        sleep 15; (( elapsed += 15 )) || true
+    done
+    return 1
+}
+
+# Assert a StatefulSet has all replicas ready.
+assert_statefulset_ready() {
+    local description="$1"
+    local name="$2"
+    local namespace="${3:-${K8S_TEST_NAMESPACE}}"
+    local timeout="${4:-${K8S_POD_TIMEOUT:-360}}"
+    local replicas="${5:-1}"
+    if wait_for_statefulset_ready "${name}" "${namespace}" "${timeout}" "${replicas}"; then
+        log_pass "${description}"
+        return 0
+    else
+        local ready
+        ready=$(kubectl get statefulset "${name}" -n "${namespace}" \
+            -o jsonpath='{.status.readyReplicas}' 2>/dev/null)
+        log_fail "${description}: only ${ready:-0}/${replicas} ready after ${timeout}s"
+        kubectl describe statefulset "${name}" -n "${namespace}" 2>/dev/null | tail -20 >&2 || true
+        return 1
+    fi
+}
+
+# Assert an HTTPS endpoint returns the expected HTTP status code.
+# Skips TLS certificate verification (-k).
+assert_https_status() {
+    local description="$1"
+    local url="$2"
+    local expected_status="$3"
+    shift 3
+    local actual_status
+    actual_status=$(curl -sk -o /dev/null -w "%{http_code}" "$@" "${url}" 2>/dev/null || echo "000")
+    if [[ "${actual_status}" == "${expected_status}" ]]; then
+        log_pass "${description} (HTTP ${actual_status})"
+        return 0
+    else
+        log_fail "${description}: expected HTTP ${expected_status}, got ${actual_status}"
+        return 1
+    fi
+}
+
 # ─── MySQL helper ────────────────────────────────────────────────────────────
 
 # Run a SQL query inside the MySQL Docker container and return the output.
