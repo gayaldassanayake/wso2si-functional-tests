@@ -5,7 +5,8 @@
 #   ./run_all_tests.sh                  # Core tests (no external infra)
 #   ./run_all_tests.sh --with-kafka     # Core + Kafka tests
 #   ./run_all_tests.sh --with-mysql     # Core + MySQL tests (TC07, TC11)
-#   ./run_all_tests.sh --all            # All 18 test cases
+#   ./run_all_tests.sh --with-helm      # Core + Helm chart Gateway API tests (TC19-TC27)
+#   ./run_all_tests.sh --all            # All test cases
 #   ./run_all_tests.sh --skip-deploy    # Skip deploying apps (already deployed)
 #   ./run_all_tests.sh TC01 TC04 TC06   # Run specific test cases
 #
@@ -22,6 +23,7 @@ source "${SCRIPT_DIR}/config.env"
 
 WITH_KAFKA=false
 WITH_MYSQL=false
+WITH_HELM=false
 SKIP_DEPLOY=false
 SPECIFIC_TCS=()
 
@@ -29,7 +31,8 @@ for arg in "$@"; do
     case "$arg" in
         --with-kafka)  WITH_KAFKA=true ;;
         --with-mysql)  WITH_MYSQL=true ;;
-        --all)         WITH_KAFKA=true; WITH_MYSQL=true ;;
+        --with-helm)   WITH_HELM=true ;;
+        --all)         WITH_KAFKA=true; WITH_MYSQL=true; WITH_HELM=true ;;
         --skip-deploy) SKIP_DEPLOY=true ;;
         TC*)           SPECIFIC_TCS+=("$arg") ;;
         --help|-h)
@@ -172,6 +175,15 @@ tc_script() {
         TC16) echo "test_tc16_time_functions.sh" ;;
         TC17) echo "test_tc17_regex_functions.sh" ;;
         TC18) echo "test_tc18_error_handling.sh" ;;
+        TC19) echo "test_tc19_helm_lint_defaults.sh" ;;
+        TC20) echo "test_tc20_ingress_only_default.sh" ;;
+        TC21) echo "test_tc21_gateway_api_enabled.sh" ;;
+        TC22) echo "test_tc22_required_tls_secret.sh" ;;
+        TC23) echo "test_tc23_backward_compat.sh" ;;
+        TC24) echo "test_tc24_external_gateway_ref.sh" ;;
+        TC25) echo "test_tc25_backend_tls_policy.sh" ;;
+        TC26) echo "test_tc26_rate_limit_policy.sh" ;;
+        TC27) echo "test_tc27_mutual_exclusion.sh" ;;
         *) echo "" ;;
     esac
 }
@@ -196,6 +208,15 @@ tc_label() {
         TC16) echo "Time extension functions" ;;
         TC17) echo "Regex extension functions" ;;
         TC18) echo "Error routing (regex numeric validation)" ;;
+        TC19) echo "Helm lint — default values (backward compat baseline)" ;;
+        TC20) echo "Helm template — Ingress-only default rendering" ;;
+        TC21) echo "Helm template — Gateway API enabled, Ingress suppressed" ;;
+        TC22) echo "Helm template — required tlsSecret validation" ;;
+        TC23) echo "Helm template — backward compat with pre-gatewayApi values" ;;
+        TC24) echo "Helm template — external Gateway reference (create=false)" ;;
+        TC25) echo "Helm template — BackendTLSPolicy content and targeting" ;;
+        TC26) echo "Helm template — BackendTrafficPolicy rate limit values" ;;
+        TC27) echo "Helm template — mutual exclusion (Ingress vs Gateway API)" ;;
         *) echo "Unknown" ;;
     esac
 }
@@ -233,6 +254,18 @@ else
         for tc in "${KAFKA_TCS[@]}"; do
             run_test "$tc" "$(tc_script "$tc")" "$(tc_label "$tc")"
         done
+    fi
+
+    if [[ "$WITH_HELM" == "true" ]]; then
+        if ! command -v helm >/dev/null 2>&1; then
+            echo -e "${YELLOW}[WARN]${NC} 'helm' not found in PATH — skipping Helm chart tests (TC19-TC27)."
+        elif [[ ! -d "${HELM_SI_CHART}" ]]; then
+            echo -e "${YELLOW}[WARN]${NC} HELM_SI_CHART directory not found: ${HELM_SI_CHART} — skipping TC19-TC27."
+        else
+            for tc in TC19 TC20 TC21 TC22 TC23 TC24 TC25 TC26 TC27; do
+                run_test "$tc" "$(tc_script "$tc")" "$(tc_label "$tc")"
+            done
+        fi
     fi
 fi
 

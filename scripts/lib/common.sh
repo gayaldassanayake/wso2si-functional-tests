@@ -271,6 +271,77 @@ assert_store_status() {
     fi
 }
 
+# ─── Helm chart assertion helpers ────────────────────────────────────────────
+
+# Render helm templates and return the YAML output (stdout).
+# Usage: helm_template [--set key=val ...] [--values file.yaml]
+helm_template() {
+    helm template si-test "${HELM_SI_CHART}" "$@" 2>&1
+}
+
+# Assert helm lint passes for the chart (with optional --set overrides).
+assert_helm_lint() {
+    local description="$1"; shift
+    local output
+    if output=$(helm lint "${HELM_SI_CHART}" "$@" 2>&1); then
+        log_pass "${description}"
+        return 0
+    else
+        log_fail "${description}"
+        echo "${output}" >&2
+        return 1
+    fi
+}
+
+# Assert that a rendered string of YAML contains a grep-compatible pattern.
+assert_yaml_contains() {
+    local description="$1"
+    local yaml="$2"
+    local pattern="$3"
+    if echo "${yaml}" | grep -qE "${pattern}"; then
+        log_pass "${description}"
+        return 0
+    else
+        log_fail "${description}: pattern '${pattern}' not found in rendered YAML"
+        return 1
+    fi
+}
+
+# Assert that a rendered string of YAML does NOT contain a grep-compatible pattern.
+assert_yaml_not_contains() {
+    local description="$1"
+    local yaml="$2"
+    local pattern="$3"
+    if echo "${yaml}" | grep -qE "${pattern}"; then
+        log_fail "${description}: pattern '${pattern}' was found in rendered YAML but should not be"
+        return 1
+    else
+        log_pass "${description}"
+        return 0
+    fi
+}
+
+# Assert that helm template fails and the error output matches a pattern.
+assert_helm_template_fails() {
+    local description="$1"
+    local expected_pattern="$2"; shift 2
+    local output
+    if output=$(helm template si-test "${HELM_SI_CHART}" "$@" 2>&1); then
+        log_fail "${description}: expected helm template to fail but it succeeded"
+        return 1
+    else
+        if echo "${output}" | grep -qE "${expected_pattern}"; then
+            log_pass "${description}"
+            return 0
+        else
+            log_fail "${description}: helm template failed but with unexpected error"
+            echo "  Expected pattern : ${expected_pattern}" >&2
+            echo "  Actual output    : ${output}" >&2
+            return 1
+        fi
+    fi
+}
+
 # ─── MySQL helper ────────────────────────────────────────────────────────────
 
 # Run a SQL query inside the MySQL Docker container and return the output.
