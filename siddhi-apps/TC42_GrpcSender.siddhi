@@ -1,0 +1,24 @@
+@App:name('TC42_GrpcSender')
+@App:description('gRPC sender: publishes HTTP-triggered events to the consume endpoint')
+
+/*
+Tests: grpc sink (fire-and-forget to consume endpoint).
+Port : 8116 (HTTP trigger)
+Deps : TC42_GrpcConsume must be deployed (listens on grpc://localhost:8183/...consume)
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8116/TC42_GrpcSender/SendStream',
+        @map(type='json'))
+define stream SendStream (message string);
+
+@sink(type='grpc',
+      publisher.url='grpc://localhost:8183/org.wso2.grpc.EventService/consume',
+      headers="'stream.id:ConsumeStream'",
+      keep.alive.time='30000',
+      @map(type='json'))
+define stream GrpcSendStream (message string);
+
+from SendStream
+select message
+insert into GrpcSendStream;

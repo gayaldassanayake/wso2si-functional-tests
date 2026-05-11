@@ -5,6 +5,7 @@ A self-contained regression test suite for WSO2 Streaming Integrator (SI) 4.3.2.
 - **18 SI functional tests** (TC01–TC18) — Siddhi apps, Docker Compose infrastructure, HTTP event injection, log scanning, Store API queries.
 - **9 Helm chart tests** (TC19–TC27) — template rendering and lint validation for the updated `helm-si` chart with Gateway API support. No cluster required.
 - **7 Kubernetes live tests** (TC28–TC34) — end-to-end validation of the Gateway API resources on a live cluster using Envoy Gateway.
+- **8 SI binary/distribution tool tests** (TC35–TC42) — server lifecycle, bundling tools (jartobundle, osgi-lib, ciphertool), CDC listening via Debezium, file sink, and gRPC echo/consume patterns.
 
 ---
 
@@ -21,6 +22,7 @@ A self-contained regression test suite for WSO2 Streaming Integrator (SI) 4.3.2.
   - [With Kafka](#with-kafka)
   - [Helm chart tests (no cluster required)](#helm-chart-tests-no-cluster-required)
   - [Kubernetes live tests](#kubernetes-live-tests)
+  - [Distribution tool tests (TC35–TC42)](#distribution-tool-tests-tc35tc42)
   - [Full suite](#full-suite)
   - [Running individual test cases](#running-individual-test-cases)
 - [Infrastructure Setup](#infrastructure-setup)
@@ -42,7 +44,7 @@ A self-contained regression test suite for WSO2 Streaming Integrator (SI) 4.3.2.
 
 ## Prerequisites
 
-### SI functional tests (TC01–TC18)
+### SI functional tests (TC01–TC18) and binary/tool tests (TC35–TC42)
 
 | Requirement | Details |
 |---|---|
@@ -84,10 +86,16 @@ wso2si-functional-tests/
 ├── run_all_tests.sh                  ← Top-level test orchestrator
 ├── GATEWAY_API_TEST_REPORT.md        ← Full test report for Gateway API changes
 │
-├── siddhi-apps/                      ← 18 Siddhi applications (one per TC01–TC18)
+├── siddhi-apps/                      ← Siddhi applications for TC01–TC18 and TC39–TC42
 │   ├── TC01_PassThrough.siddhi
 │   ├── ...
-│   └── TC18_ErrorHandling.siddhi
+│   ├── TC18_ErrorHandling.siddhi
+│   ├── TC39_CDCListening.siddhi
+│   ├── TC40_FileSink.siddhi
+│   ├── TC41_GrpcServer.siddhi
+│   ├── TC41_GrpcClient.siddhi
+│   ├── TC42_GrpcConsume.siddhi
+│   └── TC42_GrpcSender.siddhi
 │
 ├── infra/
 │   ├── docker-compose.yml            ← Kafka + Zookeeper + MySQL 8.0
@@ -117,7 +125,17 @@ wso2si-functional-tests/
     │
     ├── test_tc28_k8s_resources_created.sh     ─┐
     ├── ...                                     │ TC28–TC34: Kubernetes live tests
-    └── test_tc34_k8s_rate_limit.sh            ─┘
+    ├── test_tc34_k8s_rate_limit.sh            ─┘
+    │
+    ├── test_tc35_server_lifecycle.sh          ─┐ TC35: standalone (run before starting SI)
+    ├── test_tc36_jartobundle.sh               │
+    ├── test_tc37_osgi_lib.sh                  │ TC36–TC38: distribution tool tests (--with-tools)
+    ├── test_tc38_ciphertool.sh               ─┘
+    │
+    ├── test_tc39_cdc_listening.sh             ─┐ TC39: MySQL CDC listening (Debezium)
+    ├── test_tc40_file_sink.sh                  │ TC40–TC42: CORE_TCS (run with standard SI)
+    ├── test_tc41_grpc_echo.sh                  │
+    └── test_tc42_grpc_consume.sh             ─┘
 ```
 
 ---
@@ -144,6 +162,25 @@ ${SI_HOME}/bin/server.sh
 # 5. Run all 18 SI functional test cases
 ./run_all_tests.sh --all
 ```
+
+### Distribution tool tests (TC35–TC42)
+
+TC35 is standalone and must run before starting the SI server. TC36–TC38 test distribution tools:
+
+```bash
+# 1. Point to a valid SI installation with distribution tools
+export TOOLS_PACK_HOME=/path/to/wso2si-4.4.0-SNAPSHOT
+
+# 2. Run the standalone server lifecycle test (stop any running SI server first)
+bash scripts/test_tc35_server_lifecycle.sh
+
+# 3. Run tool tests (jartobundle, osgi-lib, ciphertool)
+./run_all_tests.sh --with-tools
+
+# TC39-TC42 run automatically with --all or --with-mysql (after starting SI)
+```
+
+TC39 requires MySQL; TC40–TC42 need only a running SI server (included in --all).
 
 ### Helm chart tests (TC19–TC27, no cluster needed)
 
@@ -236,7 +273,15 @@ HTTP source ports (each Siddhi app binds to a unique port to allow all apps to r
 | TC17 | 8112 |
 | TC18 | 8113 |
 
-TC08 uses Kafka (no HTTP port). TC11 uses CDC source. TC12 uses file source.
+TC08 uses Kafka (no HTTP port). TC11 uses CDC source. TC12 uses file source. TC39 uses CDC source (no HTTP port). TC40–TC42 use the ports below.
+
+| TC | Port |
+|---|---|
+| TC40 | 8114 |
+| TC41 | 8115 |
+| TC42 | 8116 |
+
+TC41 also opens gRPC port 8283 (grpc-service). TC42 also opens gRPC port 8183 (grpc consume).
 
 ---
 
@@ -280,6 +325,25 @@ These tests validate the updated `helm-si` chart's Gateway API support using `he
 | TC25 | `test_tc25_backend_tls_policy.sh` | `BackendTLSPolicy` API version, `sectionName: management`, CA cert and hostname overrides |
 | TC26 | `test_tc26_rate_limit_policy.sh` | `BackendTrafficPolicy` Envoy API group, `type: Local`, `requests`/`unit` values |
 | TC27 | `test_tc27_mutual_exclusion.sh` | `gatewayApi.enabled=true` takes precedence over `ingress.enabled=true` |
+
+### Distribution Tool and Binary Tests (TC35–TC42)
+
+TC35 is **standalone** — it starts and stops the SI server itself and must run *before* the main SI instance is started.
+
+TC36–TC38 test the WSO2 SI distribution tools. They require `TOOLS_PACK_HOME` to point at a valid SI installation (typically a 4.4.0-SNAPSHOT build with `bin/jartobundle.sh`, `bin/osgi-lib.sh`, and `bin/ciphertool.sh`).
+
+TC39 requires MySQL (CDC listening mode via Debezium). TC40–TC42 are grouped with the core SI functional tests and run alongside TC01–TC18 when the main SI server is running.
+
+| TC | Script | Feature Area | External Deps |
+|---|---|---|---|
+| TC35 | `test_tc35_server_lifecycle.sh` | `server.sh` start/stop, JDK compatibility check | None (STANDALONE) |
+| TC36 | `test_tc36_jartobundle.sh` | `jartobundle.sh` — JAR to OSGi bundle conversion | `TOOLS_PACK_HOME` |
+| TC37 | `test_tc37_osgi_lib.sh` | `osgi-lib.sh` — register new bundle in `bundles.info` | `TOOLS_PACK_HOME` |
+| TC38 | `test_tc38_ciphertool.sh` | `ciphertool.sh` — encrypt/decrypt round-trip | `TOOLS_PACK_HOME` |
+| TC39 | `test_tc39_cdc_listening.sh` | CDC listening mode (Debezium binlog) INSERT/UPDATE/DELETE | MySQL |
+| TC40 | `test_tc40_file_sink.sh` | File sink in append mode, CSV mapping, HTTP trigger | None |
+| TC41 | `test_tc41_grpc_echo.sh` | gRPC request-response (`grpc-service` + `grpc-call`) | None |
+| TC42 | `test_tc42_grpc_consume.sh` | gRPC fire-and-forget (`grpc` source + `grpc` sink) | None |
 
 ### Kubernetes Live Tests — Gateway API (TC28–TC34)
 
@@ -378,6 +442,24 @@ Run a single K8s test directly:
 bash scripts/test_tc32_k8s_https_routing.sh
 ```
 
+### Distribution tool tests (TC35–TC42)
+
+TC35 is standalone — run it **before** starting the SI server:
+
+```bash
+export TOOLS_PACK_HOME=/path/to/wso2si-4.4.0-SNAPSHOT
+bash scripts/test_tc35_server_lifecycle.sh
+```
+
+TC36–TC38 test distribution tools and run while SI is **not** running (they don't need a live server):
+
+```bash
+export TOOLS_PACK_HOME=/path/to/wso2si-4.4.0-SNAPSHOT
+./run_all_tests.sh --with-tools
+```
+
+TC39–TC42 are included automatically in `--all` / `--with-mysql` runs alongside the core SI tests. TC39 requires MySQL (see [With MySQL](#with-mysql)). TC40–TC42 require only a running SI server.
+
 ### Full suite
 
 All test cases including SI functional, Helm chart, and Kubernetes live tests:
@@ -443,13 +525,15 @@ This also removes any deployed TC Siddhi apps from the SI deployment directory.
 
 ### MySQL JDBC driver
 
-TC07 and TC11 require the MySQL Connector/J JAR to be present in `${SI_HOME}/lib/`. The SI distribution does not bundle it.
+TC07, TC11, and TC39 require the MySQL Connector/J JAR to be present in `${SI_HOME}/lib/`. The SI distribution does not bundle it.
 
 1. Download `mysql-connector-j-8.x.x.jar` from the [MySQL Downloads page](https://dev.mysql.com/downloads/connector/j/).
 2. Place it in `${SI_HOME}/lib/`.
 3. Restart the SI server.
 
 `setup.sh --mysql` will warn you if the JAR is missing.
+
+TC39 additionally requires the `sitest` user to have `RELOAD`, `SHOW DATABASES`, `REPLICATION SLAVE`, and `REPLICATION CLIENT` MySQL privileges (needed by Debezium's snapshot phase). These are granted automatically by `infra/mysql-init/01_init.sql` when the Docker Compose MySQL container is first started.
 
 ### Kafka OSGi jars
 

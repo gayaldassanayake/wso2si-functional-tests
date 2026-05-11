@@ -5,7 +5,7 @@
 #   ./scripts/deploy.sh --core              # TC01-TC06, TC09-TC10, TC12-TC18 (no external infra)
 #   ./scripts/deploy.sh --kafka             # Add TC08
 #   ./scripts/deploy.sh --mysql             # Add TC07, TC11
-#   ./scripts/deploy.sh --all               # All 18 test cases
+#   ./scripts/deploy.sh --all               # All test cases (TC01-TC18, TC39-TC42)
 #   ./scripts/deploy.sh TC01 TC04 TC06      # Deploy specific apps by number
 
 set -euo pipefail
@@ -33,9 +33,14 @@ CORE_APPS=(
     TC16_TimeFunctions.siddhi
     TC17_RegexFunctions.siddhi
     TC18_ErrorHandling.siddhi
+    TC40_FileSink.siddhi
+    TC41_GrpcServer.siddhi
+    TC41_GrpcClient.siddhi
+    TC42_GrpcConsume.siddhi
+    TC42_GrpcSender.siddhi
 )
 KAFKA_APPS=(TC08_KafkaPassThrough.siddhi)
-MYSQL_APPS=(TC07_MySQLPersist.siddhi TC11_CDCPolling.siddhi)
+MYSQL_APPS=(TC07_MySQLPersist.siddhi TC11_CDCPolling.siddhi TC39_CDCListening.siddhi)
 FILE_APPS=(TC12_FileSource.siddhi)
 
 TO_DEPLOY=()

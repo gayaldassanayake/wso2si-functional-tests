@@ -508,6 +508,28 @@ assert_https_status() {
     fi
 }
 
+# ─── File/directory assertion helpers ────────────────────────────────────────
+
+assert_file_exists() {
+    local description="$1" path="$2"
+    if [[ -f "${path}" ]]; then
+        log_pass "${description}"; return 0
+    else
+        log_fail "${description}: file not found: ${path}"; return 1
+    fi
+}
+
+assert_dir_file_count() {
+    local description="$1" dir="$2" pattern="$3" expected="$4"
+    local actual
+    actual=$(find "${dir}" -maxdepth 1 -name "${pattern}" | wc -l | tr -d ' ')
+    if [[ "${actual}" == "${expected}" ]]; then
+        log_pass "${description} (${actual} files)"; return 0
+    else
+        log_fail "${description}: expected ${expected} matching '${pattern}', got ${actual}"; return 1
+    fi
+}
+
 # ─── MySQL helper ────────────────────────────────────────────────────────────
 
 # Run a SQL query inside the MySQL Docker container and return the output.

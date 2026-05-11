@@ -12,6 +12,7 @@
 #   ./run_all_tests.sh --all --skip-k8s   # All except Kubernetes live tests
 #   ./run_all_tests.sh --all --skip-helm --skip-k8s  # All except Helm and K8s tests
 #   ./run_all_tests.sh --skip-deploy    # Skip deploying apps (already deployed)
+#   ./run_all_tests.sh --with-tools     # Core + distribution tool tests (TC36–38)
 #   ./run_all_tests.sh TC01 TC04 TC06   # Run specific test cases
 #
 # Prerequisites:
@@ -19,6 +20,8 @@
 #   2. Set SI_HOME: export SI_HOME=/path/to/wso2si-4.3.2
 #      or edit config.env
 #   3. For --with-kafka or --with-mysql: run ./scripts/setup.sh first
+#   4. For --with-tools: set TOOLS_PACK_HOME to the SI pack under test
+#      TC35 (server lifecycle) is standalone — run it separately before starting SI
 
 set -euo pipefail
 
@@ -29,6 +32,7 @@ WITH_KAFKA=false
 WITH_MYSQL=false
 WITH_HELM=false
 WITH_K8S=false
+WITH_TOOLS=false
 SKIP_DEPLOY=false
 SKIP_HELM=false
 SKIP_K8S=false
@@ -40,7 +44,8 @@ for arg in "$@"; do
         --with-mysql)  WITH_MYSQL=true ;;
         --with-helm)   WITH_HELM=true ;;
         --with-k8s)    WITH_K8S=true ;;
-        --all)         WITH_KAFKA=true; WITH_MYSQL=true; WITH_HELM=true; WITH_K8S=true ;;
+        --with-tools)  WITH_TOOLS=true ;;
+        --all)         WITH_KAFKA=true; WITH_MYSQL=true; WITH_HELM=true; WITH_K8S=true; WITH_TOOLS=true ;;
         --skip-helm)   SKIP_HELM=true ;;
         --skip-k8s)    SKIP_K8S=true ;;
         --skip-deploy) SKIP_DEPLOY=true ;;
@@ -201,6 +206,14 @@ tc_script() {
         TC32) echo "test_tc32_k8s_https_routing.sh" ;;
         TC33) echo "test_tc33_k8s_backend_tls.sh" ;;
         TC34) echo "test_tc34_k8s_rate_limit.sh" ;;
+        TC35) echo "test_tc35_server_lifecycle.sh" ;;
+        TC36) echo "test_tc36_jartobundle.sh" ;;
+        TC37) echo "test_tc37_osgi_lib.sh" ;;
+        TC38) echo "test_tc38_ciphertool.sh" ;;
+        TC39) echo "test_tc39_cdc_listening.sh" ;;
+        TC40) echo "test_tc40_file_sink.sh" ;;
+        TC41) echo "test_tc41_grpc_echo.sh" ;;
+        TC42) echo "test_tc42_grpc_consume.sh" ;;
         *) echo "" ;;
     esac
 }
@@ -241,16 +254,25 @@ tc_label() {
         TC32) echo "K8s live — HTTPS routing via Envoy Gateway" ;;
         TC33) echo "K8s live — BackendTLSPolicy created and targeting" ;;
         TC34) echo "K8s live — BackendTrafficPolicy rate limit values" ;;
+        TC35) echo "SI server lifecycle — start/stop/restart verification" ;;
+        TC36) echo "jartobundle.sh — JAR to OSGi bundle conversion" ;;
+        TC37) echo "osgi-lib.sh — OSGi lib deployment to server runtime" ;;
+        TC38) echo "ciphertool.sh — encrypt/decrypt round-trip" ;;
+        TC39) echo "MySQL CDC listening mode — INSERT/UPDATE/DELETE via Debezium [requires MySQL]" ;;
+        TC40) echo "File sink — HTTP events written to CSV file" ;;
+        TC41) echo "gRPC echo — request-response round-trip (grpc-service + grpc-call)" ;;
+        TC42) echo "gRPC consume — fire-and-forget (grpc source + grpc sink)" ;;
         *) echo "Unknown" ;;
     esac
 }
 
 # Core tests (always run unless specific TCs are given)
-CORE_TCS=(TC01 TC02 TC03 TC04 TC05 TC06 TC09 TC10 TC12 TC13 TC14 TC15 TC16 TC17 TC18)
+CORE_TCS=(TC01 TC02 TC03 TC04 TC05 TC06 TC09 TC10 TC12 TC13 TC14 TC15 TC16 TC17 TC18 TC40 TC41 TC42)
 
 # Optional infra-dependent tests
 KAFKA_TCS=(TC08)
-MYSQL_TCS=(TC07 TC11)
+MYSQL_TCS=(TC07 TC11 TC39)
+TOOLS_TCS=(TC36 TC37 TC38)  # TC35 is standalone — run before starting SI
 
 if [[ ${#SPECIFIC_TCS[@]} -gt 0 ]]; then
     # Run only specified TCs
@@ -306,6 +328,12 @@ else
                 run_test "$tc" "$(tc_script "$tc")" "$(tc_label "$tc")"
             done
         fi
+    fi
+
+    if [[ "$WITH_TOOLS" == "true" ]]; then
+        for tc in "${TOOLS_TCS[@]}"; do
+            run_test "$tc" "$(tc_script "$tc")" "$(tc_label "$tc")"
+        done
     fi
 fi
 

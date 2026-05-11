@@ -1,0 +1,67 @@
+@App:name('TC39_CDCListening')
+@App:description('CDC listening mode: Debezium binlog-based INSERT/UPDATE/DELETE capture')
+
+/*
+Tests: CDC source in listening (Debezium) mode, keyvalue mapping, binlog-based capture.
+Deps : MySQL (Docker Compose) with binlog enabled (already configured in docker-compose.yml),
+       sitest user with REPLICATION privileges (added in 01_init.sql),
+       MySQL JDBC JAR in $SI_HOME/lib/
+       Table 'cdc_listen_table' created by setup.sh (via 01_init.sql)
+*/
+
+@source(type='cdc',
+        url='jdbc:mysql://localhost:3307/si_test_db?useSSL=false&allowPublicKeyRetrieval=true',
+        mode='listening',
+        jdbc.driver.name='com.mysql.cj.jdbc.Driver',
+        username='sitest',
+        password='sitest123',
+        table.name='cdc_listen_table',
+        operation='insert',
+        @map(type='keyvalue'))
+define stream CDCInsertStream (order_id int, product string, quantity int, price double);
+
+@source(type='cdc',
+        url='jdbc:mysql://localhost:3307/si_test_db?useSSL=false&allowPublicKeyRetrieval=true',
+        mode='listening',
+        jdbc.driver.name='com.mysql.cj.jdbc.Driver',
+        username='sitest',
+        password='sitest123',
+        table.name='cdc_listen_table',
+        operation='update',
+        @map(type='keyvalue'))
+define stream CDCUpdateStream (order_id int, product string, quantity int, price double,
+                               before_order_id int, before_product string,
+                               before_quantity int, before_price double);
+
+@source(type='cdc',
+        url='jdbc:mysql://localhost:3307/si_test_db?useSSL=false&allowPublicKeyRetrieval=true',
+        mode='listening',
+        jdbc.driver.name='com.mysql.cj.jdbc.Driver',
+        username='sitest',
+        password='sitest123',
+        table.name='cdc_listen_table',
+        operation='delete',
+        @map(type='keyvalue'))
+define stream CDCDeleteStream (before_order_id int, before_product string,
+                               before_quantity int, before_price double);
+
+@sink(type='log', prefix='[TC39-INSERT]')
+define stream InsertLogStream (order_id int, product string, quantity int, price double);
+
+@sink(type='log', prefix='[TC39-UPDATE]')
+define stream UpdateLogStream (order_id int, product string, quantity int, price double);
+
+@sink(type='log', prefix='[TC39-DELETE]')
+define stream DeleteLogStream (before_order_id int, before_product string);
+
+from CDCInsertStream
+select order_id, product, quantity, price
+insert into InsertLogStream;
+
+from CDCUpdateStream
+select order_id, product, quantity, price
+insert into UpdateLogStream;
+
+from CDCDeleteStream
+select before_order_id, before_product
+insert into DeleteLogStream;

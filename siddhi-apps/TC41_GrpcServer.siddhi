@@ -1,0 +1,31 @@
+@App:name('TC41_GrpcServer')
+@App:description('gRPC service: receives requests on process endpoint and echoes back')
+
+/*
+Tests: grpc-service source, grpc-service-response sink (request-response pattern).
+gRPC: localhost:8283 / org.wso2.grpc.EventService/process
+Deps : none (pairs with TC41_GrpcClient for end-to-end test)
+*/
+
+@source(type='grpc-service',
+        receiver.url='grpc://localhost:8283/org.wso2.grpc.EventService/process',
+        source.id='1',
+        @map(type='json', @attributes(messageId='trp:message.id', message='$.event.message')))
+define stream ServerRequestStream (messageId string, message string);
+
+@sink(type='grpc-service-response',
+      source.id='1',
+      message.id='{{messageId}}',
+      @map(type='json'))
+define stream ServerResponseStream (messageId string, message string);
+
+@sink(type='log', prefix='[TC41-SERVER]')
+define stream ServerLogStream (message string);
+
+from ServerRequestStream
+select messageId, str:concat('Echo: ', message) as message
+insert into ServerResponseStream;
+
+from ServerRequestStream
+select message
+insert into ServerLogStream;

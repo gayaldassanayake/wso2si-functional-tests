@@ -1,0 +1,30 @@
+@App:name('TC40_FileSink')
+@App:description('File sink: write HTTP events to a CSV file in append mode')
+
+/*
+Tests: file sink (append mode), CSV mapping, file creation.
+Port : 8114
+Deps : none
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8114/TC40_FileSink/SalesInputStream',
+        @map(type='json'))
+define stream SalesInputStream (product string, quantity int, price double);
+
+@sink(type='file',
+      file.uri='file:///tmp/si-test-sink-tc40.csv',
+      append='true',
+      @map(type='csv'))
+define stream SalesOutputStream (product string, quantity int, price double);
+
+@sink(type='log', prefix='[TC40-FILE]')
+define stream SalesLogStream (product string, quantity int, price double);
+
+from SalesInputStream
+select product, quantity, price
+insert into SalesOutputStream;
+
+from SalesInputStream
+select product, quantity, price
+insert into SalesLogStream;

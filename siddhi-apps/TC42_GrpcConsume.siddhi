@@ -1,0 +1,20 @@
+@App:name('TC42_GrpcConsume')
+@App:description('gRPC consume receiver: logs fire-and-forget events from the consume endpoint')
+
+/*
+Tests: grpc source (consume endpoint), fire-and-forget pattern.
+gRPC: localhost:8183 / org.wso2.grpc.EventService/consume
+Deps : none (pairs with TC42_GrpcSender)
+*/
+
+@source(type='grpc',
+        receiver.url='grpc://localhost:8183/org.wso2.grpc.EventService/consume',
+        @map(type='json'))
+define stream ConsumeStream (message string);
+
+@sink(type='log', prefix='[TC42-CONSUME]')
+define stream LogStream (message string);
+
+from ConsumeStream
+select message
+insert into LogStream;

@@ -1,0 +1,36 @@
+@App:name('TC41_GrpcClient')
+@App:description('gRPC client: triggered by HTTP, calls grpc-service and logs the echo response')
+
+/*
+Tests: grpc-call sink, grpc-call-response source.
+Port : 8115 (HTTP trigger)
+Deps : TC41_GrpcServer must be deployed (listens on grpc://localhost:8283/...process)
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8115/TC41_GrpcClient/TriggerStream',
+        @map(type='json'))
+define stream TriggerStream (message string);
+
+@sink(type='grpc-call',
+      publisher.url='grpc://localhost:8283/org.wso2.grpc.EventService/process',
+      sink.id='1',
+      headers="'stream.id:ServerRequestStream'",
+      @map(type='json'))
+define stream GrpcCallStream (message string);
+
+@source(type='grpc-call-response',
+        sink.id='1',
+        @map(type='json', @attributes(response='$.event.message')))
+define stream GrpcResponseStream (response string);
+
+@sink(type='log', prefix='[TC41-CLIENT]')
+define stream ClientLogStream (response string);
+
+from TriggerStream
+select message
+insert into GrpcCallStream;
+
+from GrpcResponseStream
+select response
+insert into ClientLogStream;
