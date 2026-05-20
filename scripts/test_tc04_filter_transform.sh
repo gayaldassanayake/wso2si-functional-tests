@@ -8,6 +8,12 @@ CURRENT_TC="TC04"
 require_si_running
 URL="http://localhost:${PORT_TC04}/TC04_FilterTransform/OrderStream"
 
+# Redeploy fresh: in-memory HighValueTable/LowValueTable start empty, and any
+# spurious double-pickup of the batch-deployed file cannot race with our events.
+undeploy_app "TC04_FilterTransform.siddhi"
+deploy_app   "TC04_FilterTransform.siddhi"
+assert_log_contains "app deployed" 'TC04_FilterTransform.*deployed successfully' 30
+
 log_info "T1: total=125 (5*25) should go to HIGH stream only"
 post_event "${URL}" '{"orderId":"ord-1","product":"toffee","qty":5,"unitPrice":25.0}' >/dev/null
 assert_log_contains "T1: [TC04-HIGH] fires for total=125" '\[TC04-HIGH\].*ord-1' 20

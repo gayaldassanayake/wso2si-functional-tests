@@ -1,0 +1,35 @@
+@App:name('TC46_RedisStore')
+@App:description('Redis store: HTTP events persisted via @store(type=redis), PK upsert, Store API queryable')
+
+/*
+Tests: siddhi-store-redis — @store(type='redis') with @PrimaryKey upsert; Store API query.
+       Note: when queried via Store API, the PK field returns null (Redis stores it as key name).
+Port : 8121
+Deps : Redis @ localhost:6379; siddhi-store-redis extension in SI
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8121/TC46_RedisStore/SessionStream',
+        @map(type='json'))
+define stream SessionStream (sessionId string, userId string, loginTime long);
+
+@sink(type='log', prefix='[TC46-REDIS]')
+define stream SessionLogStream (sessionId string, userId string, loginTime long);
+
+@store(type='redis',
+       host='localhost',
+       port='6379')
+@PrimaryKey('sessionId')
+define table SessionTable (sessionId string, userId string, loginTime long);
+
+@info(name='log-events')
+from SessionStream
+select sessionId, userId, loginTime
+insert into SessionLogStream;
+
+@info(name='to-redis')
+from SessionStream
+select sessionId, userId, loginTime
+update or insert into SessionTable
+    set SessionTable.userId = userId, SessionTable.loginTime = loginTime
+    on SessionTable.sessionId == sessionId;

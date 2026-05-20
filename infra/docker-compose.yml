@@ -65,6 +65,8 @@ services:
       --binlog-format=ROW
       --log-bin=mysql-bin
       --server-id=1
+      --skip-ssl
+      --max-connections=500
     volumes:
       - ./mysql-init:/docker-entrypoint-initdb.d
     healthcheck:
@@ -73,3 +75,35 @@ services:
       timeout: 5s
       retries: 20
       start_period: 40s
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: si-test-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 20s
+
+  redis:
+    image: redis:7-alpine
+    container_name: si-test-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+networks:
+  default:
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.20.0.0/16

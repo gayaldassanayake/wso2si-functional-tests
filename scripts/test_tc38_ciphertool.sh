@@ -7,6 +7,19 @@ CURRENT_TC="TC38"
 
 require_file "${TOOLS_PACK_HOME}/bin/ciphertool.sh"
 
+# ciphertool.sh checks `java_version_formatted > 1100` and exits on JDK > 11.
+# Override JAVA_HOME to a JDK 11 installation when the active JDK is newer.
+_JAVA_MAJOR=$(java -version 2>&1 | awk -F '"' '/version/{print $2}' | cut -d. -f1)
+if [[ "${_JAVA_MAJOR}" -gt 11 ]]; then
+    JAVA11=/Library/Java/JavaVirtualMachines/graalvm-ce-java11-22.3.0/Contents/Home
+    if [[ -x "${JAVA11}/bin/java" ]]; then
+        export JAVA_HOME="${JAVA11}"
+    else
+        log_skip "ciphertool.sh requires JDK ≤ 11 and no JDK 11 found — skipping TC38"
+        exit 0
+    fi
+fi
+
 PLAINTEXT="TestSecret@123"
 
 log_info "T1: ciphertool.sh -encryptText — produce encrypted value"

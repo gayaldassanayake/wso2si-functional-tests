@@ -8,6 +8,8 @@ CURRENT_TC="TC03"
 require_si_running
 URL="http://localhost:${PORT_TC03}/TC03_WindowAggregation/SensorStream"
 
+assert_log_contains "app deployed" 'TC03_WindowAggregation.*deployed successfully' 30
+
 log_info "T1: Send 3 events (reading=10.0 each) - lengthBatch(3) should fire"
 for i in 1 2 3; do
     post_event "${URL}" '{"sensorId":"s1","reading":10.0}' >/dev/null

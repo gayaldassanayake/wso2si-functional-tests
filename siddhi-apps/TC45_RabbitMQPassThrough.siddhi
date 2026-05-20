@@ -1,0 +1,37 @@
+@App:name('TC45_RabbitMQPassThrough')
+@App:description('RabbitMQ source -> filter -> RabbitMQ sink with JSON mapping')
+
+/*
+Tests: siddhi-io-rabbitmq — consume from si-test-rmq-in-q, filter amount > 10, publish
+       to si-test-rmq-out exchange / si-test-rmq-out-q; verifies source/sink and filter.
+Port : n/a (AMQP-driven)
+Deps : RabbitMQ @ localhost:5672 (guest/guest); siddhi-io-rabbitmq extension in SI
+       Exchanges/queues pre-declared by infra/rabbitmq-init/declare.sh
+*/
+
+@source(type='rabbitmq',
+        uri='amqp://guest:guest@localhost:5672',
+        exchange.name='si-test-rmq-in',
+        queue.name='si-test-rmq-in-q',
+        @map(type='json'))
+define stream RabbitMQInputStream (name string, amount double);
+
+@sink(type='rabbitmq',
+      uri='amqp://guest:guest@localhost:5672',
+      exchange.name='si-test-rmq-out',
+      routing.key='si-test-rmq-out-q',
+      @map(type='json'))
+define stream RabbitMQOutputStream (name string, amount double);
+
+@sink(type='log', prefix='[TC45-RABBIT]')
+define stream RabbitMQLogStream (name string, amount double);
+
+@info(name='log-all')
+from RabbitMQInputStream
+select name, amount
+insert into RabbitMQLogStream;
+
+@info(name='filter-high')
+from RabbitMQInputStream[amount > 10.0]
+select name, amount
+insert into RabbitMQOutputStream;

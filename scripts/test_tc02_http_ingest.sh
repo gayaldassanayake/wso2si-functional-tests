@@ -8,6 +8,12 @@ CURRENT_TC="TC02"
 require_si_running
 URL="http://localhost:${PORT_TC02}/TC02_HttpIngest/SweetStream"
 
+# Redeploy fresh so the in-memory SweetTable starts empty and the deployment
+# message is recent enough that tail -n 2000 will find it.
+undeploy_app "TC02_HttpIngest.siddhi"
+deploy_app   "TC02_HttpIngest.siddhi"
+assert_log_contains "app deployed" 'TC02_HttpIngest.*deployed successfully' 30
+
 log_info "T1: POST event and verify log output"
 post_event "${URL}" '{"name":"toffee","amount":25.5,"category":"candy"}' >/dev/null
 assert_log_contains "T1: event logged with [TC02] prefix" '\[TC02\].*toffee' 20

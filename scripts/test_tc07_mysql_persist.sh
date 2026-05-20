@@ -16,6 +16,12 @@ fi
 
 URL="http://localhost:${PORT_TC07}/TC07_MySQLPersist/InventoryStream"
 
+# Redeploy fresh: MySQL table starts in known state and the HTTP source is
+# guaranteed to be bound before we start sending events.
+undeploy_app "TC07_MySQLPersist.siddhi"
+deploy_app   "TC07_MySQLPersist.siddhi"
+assert_log_contains "app deployed" 'TC07_MySQLPersist.*deployed successfully' 30
+
 log_info "T1: POST 3 inventory events and verify log output"
 post_event "${URL}" '{"itemId":"i1","itemName":"Widget","quantity":100,"price":9.99}' >/dev/null
 post_event "${URL}" '{"itemId":"i2","itemName":"Gadget","quantity":50,"price":24.99}' >/dev/null
@@ -36,7 +42,7 @@ sleep 5
 assert_mysql_count "T4: MySQL count stays 3 after upsert" "InventoryTable" 3
 
 log_info "T5: Verify updated value in MySQL"
-updated_qty=$(mysql_query "SELECT quantity FROM InventoryTable WHERE item_id='i1';")
+updated_qty=$(mysql_query "SELECT quantity FROM InventoryTable WHERE itemId='i1';")
 if [[ "${updated_qty}" == "150" ]]; then
     log_pass "T5: quantity updated to 150 in MySQL"
 else
@@ -44,7 +50,7 @@ else
 fi
 
 log_info "T6: Delete test - remove i2 via direct MySQL DELETE, verify Store API reflects it"
-mysql_query "DELETE FROM InventoryTable WHERE item_id='i2';" >/dev/null
+mysql_query "DELETE FROM InventoryTable WHERE itemId='i2';" >/dev/null
 sleep 2
 assert_store_count "T6: Store API shows 2 after MySQL DELETE" "TC07_MySQLPersist" \
     "from InventoryTable select *" 2

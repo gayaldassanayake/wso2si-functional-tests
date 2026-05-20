@@ -1,0 +1,14 @@
+@App:name('TC43_ThriftReceiver')
+@App:description('TC43: subscribes to TC43Stream via DataBridge wso2event source and logs received events')
+
+@source(type='wso2event',
+        wso2.stream.id='TC43Stream:1.0.0',
+        @map(type='wso2event'))
+define stream RecvStream (transport string, symbol string, price double, qty int);
+
+@sink(type='log', prefix='[TC43-RECV]')
+define stream LogStream (transport string, symbol string, price double, qty int);
+
+from RecvStream
+select transport, symbol, price, qty
+insert into LogStream;

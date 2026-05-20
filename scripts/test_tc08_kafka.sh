@@ -8,34 +8,34 @@ CURRENT_TC="TC08"
 require_si_running
 require_kafka_running
 
-KAFKA_PRODUCER="docker exec -i ${KAFKA_CONTAINER} kafka-console-producer --bootstrap-server localhost:9092 --topic si-test-input"
+# Use kcat from the host (no JVM startup overhead, works from host via mapped port).
+# broker.address.family=v4 prevents kcat from following the broker's advertised
+# 'localhost' address to IPv6 ([::1]:9092), which is not reachable on this host.
+KAFKA_OPTS="-X broker.address.family=v4"
+KAFKA_PRODUCER="kcat -b ${KAFKA_BOOTSTRAP} ${KAFKA_OPTS} -t si-test-input -P"
 
 log_info "T1: Wait for Kafka app to start (checking SI log)"
-assert_log_contains "T1: Kafka app started" 'TC08_KafkaPassThrough.*Started Successfully' 30
+assert_log_contains "T1: Kafka app started" 'TC08_KafkaPassThrough.*deployed successfully' 30
 
 log_info "T2: Produce 3 events (2 above filter threshold, 1 below)"
 # Events: chocolate(50.0) passes, toffee(5.0) filtered, cake(200.0) passes
-echo '{"event":{"name":"chocolate","amount":50.0}}' | eval "${KAFKA_PRODUCER}" 2>/dev/null
+printf '{"event":{"name":"chocolate","amount":50.0}}\n' | eval "${KAFKA_PRODUCER}" 2>/dev/null
 sleep 0.5
-echo '{"event":{"name":"toffee","amount":5.0}}' | eval "${KAFKA_PRODUCER}" 2>/dev/null
+printf '{"event":{"name":"toffee","amount":5.0}}\n' | eval "${KAFKA_PRODUCER}" 2>/dev/null
 sleep 0.5
-echo '{"event":{"name":"cake","amount":200.0}}' | eval "${KAFKA_PRODUCER}" 2>/dev/null
+printf '{"event":{"name":"cake","amount":200.0}}\n' | eval "${KAFKA_PRODUCER}" 2>/dev/null
 sleep 2
 
 log_info "T3: All 3 events appear in SI log (log sink fires before filter)"
 assert_log_contains "T3a: chocolate in log" '\[TC08-KAFKA\].*chocolate' 20
-assert_log_contains "T3b: toffee in log" '\[TC08-KAFKA\].*toffee' 10
-assert_log_contains "T3c: cake in log" '\[TC08-KAFKA\].*cake' 10
+assert_log_contains "T3b: toffee in log" '\[TC08-KAFKA\].*toffee' 15
+assert_log_contains "T3c: cake in log" '\[TC08-KAFKA\].*cake' 15
 
 log_info "T4: Consume output Kafka topic - only high-amount events should be there"
 OUTPUT_FILE=$(mktemp)
-timeout 15 docker exec "${KAFKA_CONTAINER}" \
-    kafka-console-consumer \
-    --bootstrap-server localhost:9092 \
-    --topic si-test-output \
-    --from-beginning \
-    --timeout-ms 10000 \
-    > "${OUTPUT_FILE}" 2>/dev/null || true
+# Use kcat from host — fast native binary, no JVM startup delay
+kcat -b "${KAFKA_BOOTSTRAP}" ${KAFKA_OPTS} -t si-test-output -C -e -o beginning 2>/dev/null \
+    > "${OUTPUT_FILE}" || true
 
 if grep -q 'chocolate' "${OUTPUT_FILE}"; then
     log_pass "T4a: 'chocolate' (amount=50.0) in Kafka output"
@@ -58,7 +58,7 @@ fi
 rm -f "${OUTPUT_FILE}"
 
 log_info "T5: Produce more events and verify real-time processing"
-echo '{"event":{"name":"brownie","amount":75.0}}' | eval "${KAFKA_PRODUCER}" 2>/dev/null
+printf '{"event":{"name":"brownie","amount":75.0}}\n' | eval "${KAFKA_PRODUCER}" 2>/dev/null
 assert_log_contains "T5: new event processed in real-time" '\[TC08-KAFKA\].*brownie' 20
 
 print_summary; tc_exit_code

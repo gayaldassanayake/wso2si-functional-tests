@@ -6,6 +6,11 @@ source "${SCRIPT_DIR}/lib/common.sh"
 CURRENT_TC="TC15"
 
 require_si_running
+
+undeploy_app "TC15_FormatTransform.siddhi"
+deploy_app   "TC15_FormatTransform.siddhi"
+assert_log_contains "TC15 app started" 'TC15_FormatTransform.*deployed successfully' 30
+
 XML_URL="http://localhost:${PORT_TC15}/TC15_FormatTransform/XmlStream"
 JSON_CUSTOM_URL="http://localhost:${PORT_TC15}/TC15_FormatTransform/JsonCustomStream"
 CSV_URL="http://localhost:${PORT_TC15}/TC15_FormatTransform/CsvStream"

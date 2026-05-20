@@ -8,6 +8,10 @@ CURRENT_TC="TC42"
 require_si_running
 
 log_info "T1: gRPC consumer and sender apps started"
+undeploy_app "TC42_GrpcConsume.siddhi"
+undeploy_app "TC42_GrpcSender.siddhi"
+deploy_app   "TC42_GrpcConsume.siddhi"
+deploy_app   "TC42_GrpcSender.siddhi"
 assert_log_contains "T1: TC42 consumer started" 'TC42_GrpcConsume.*deployed successfully' 30
 assert_log_contains "T1: TC42 sender started" 'TC42_GrpcSender.*deployed successfully' 30
 

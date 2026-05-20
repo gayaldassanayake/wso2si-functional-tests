@@ -8,33 +8,33 @@ Deps : MySQL (Docker Compose), MySQL JDBC JAR in $SI_HOME/lib/
 */
 
 @source(type='cdc',
-        url='jdbc:mysql://localhost:3306/si_test_db?useSSL=false&allowPublicKeyRetrieval=true',
+        url='jdbc:mysql://localhost:3307/si_test_db?useSSL=false&allowPublicKeyRetrieval=true',
         mode='polling',
         jdbc.driver.name='com.mysql.cj.jdbc.Driver',
-        polling.column='updated_at',
+        polling.column='row_version',
         polling.interval='2',
         username='sitest',
         password='sitest123',
         table.name='cdc_test_table',
         @map(type='keyvalue'))
-define stream CDCPollingStream (item_id string, item_name string, quantity int, updated_at string);
+define stream CDCPollingStream (item_id string, item_name string, quantity int, row_version long);
 
 @sink(type='log', prefix='[TC11-CDC]')
-define stream CDCLogStream (item_id string, item_name string, quantity int, updated_at string);
+define stream CDCLogStream (item_id string, item_name string, quantity int, row_version long);
 
 @PrimaryKey('item_id')
-define table CDCCapturedTable (item_id string, item_name string, quantity int, updated_at string);
+define table CDCCapturedTable (item_id string, item_name string, quantity int, row_version long);
 
 @info(name='cdc-to-log')
 from CDCPollingStream
-select item_id, item_name, quantity, updated_at
+select item_id, item_name, quantity, row_version
 insert into CDCLogStream;
 
 @info(name='cdc-to-table')
 from CDCPollingStream
-select item_id, item_name, quantity, updated_at
+select item_id, item_name, quantity, row_version
 update or insert into CDCCapturedTable
     set CDCCapturedTable.item_name = item_name,
         CDCCapturedTable.quantity = quantity,
-        CDCCapturedTable.updated_at = updated_at
+        CDCCapturedTable.row_version = row_version
     on CDCCapturedTable.item_id == item_id;

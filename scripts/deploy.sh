@@ -2,10 +2,13 @@
 # deploy.sh — copy Siddhi apps to SI deployment directory
 #
 # Usage:
-#   ./scripts/deploy.sh --core              # TC01-TC06, TC09-TC10, TC12-TC18 (no external infra)
+#   ./scripts/deploy.sh --core              # TC01-TC06, TC09-TC10, TC12-TC18, TC40-TC42, TC44, TC47
 #   ./scripts/deploy.sh --kafka             # Add TC08
 #   ./scripts/deploy.sh --mysql             # Add TC07, TC11
-#   ./scripts/deploy.sh --all               # All test cases (TC01-TC18, TC39-TC42)
+#   ./scripts/deploy.sh --rabbitmq          # Add TC45
+#   ./scripts/deploy.sh --redis             # Add TC46
+#   ./scripts/deploy.sh --thrift            # Add TC43
+#   ./scripts/deploy.sh --all               # All test cases
 #   ./scripts/deploy.sh TC01 TC04 TC06      # Deploy specific apps by number
 
 set -euo pipefail
@@ -16,7 +19,6 @@ source "${SUITE_ROOT}/config.env"
 
 APPS_DIR="${SUITE_ROOT}/siddhi-apps"
 
-# All 18 test apps
 CORE_APPS=(
     TC01_PassThrough.siddhi
     TC02_HttpIngest.siddhi
@@ -38,9 +40,17 @@ CORE_APPS=(
     TC41_GrpcClient.siddhi
     TC42_GrpcConsume.siddhi
     TC42_GrpcSender.siddhi
+    TC44_HttpRequestResponse.siddhi
+    TC47_XmlEmit.siddhi
 )
 KAFKA_APPS=(TC08_KafkaPassThrough.siddhi)
-MYSQL_APPS=(TC07_MySQLPersist.siddhi TC11_CDCPolling.siddhi TC39_CDCListening.siddhi)
+MYSQL_APPS=(TC07_MySQLPersist.siddhi TC11_CDCPolling.siddhi)
+# TC39 apps (CDCInsert/Update/Delete) are NOT pre-deployed: the TC39 test script
+# deploys and undeploys each one in sequence to avoid Debezium 2.x JMX MBean conflicts
+# that occur when multiple connectors share the same MySQL URL.
+RABBITMQ_APPS=(TC45_RabbitMQPassThrough.siddhi)
+REDIS_APPS=(TC46_RedisStore.siddhi)
+THRIFT_APPS=(TC43_ThriftReceiver.siddhi TC43_ThriftSenderTCP.siddhi)
 FILE_APPS=(TC12_FileSource.siddhi)
 
 TO_DEPLOY=()
@@ -63,14 +73,22 @@ for arg in "$@"; do
         --mysql)
             TO_DEPLOY+=("${MYSQL_APPS[@]}")
             ;;
+        --rabbitmq)
+            TO_DEPLOY+=("${RABBITMQ_APPS[@]}")
+            ;;
+        --redis)
+            TO_DEPLOY+=("${REDIS_APPS[@]}")
+            ;;
+        --thrift)
+            TO_DEPLOY+=("${THRIFT_APPS[@]}")
+            ;;
         --file)
             INCLUDE_FILE=true
             TO_DEPLOY+=(TC12_FileSource.siddhi)
             ;;
         --all)
-            TO_DEPLOY+=("${CORE_APPS[@]}" "${KAFKA_APPS[@]}" "${MYSQL_APPS[@]}")
+            TO_DEPLOY+=("${CORE_APPS[@]}" "${KAFKA_APPS[@]}" "${MYSQL_APPS[@]}" "${RABBITMQ_APPS[@]}" "${REDIS_APPS[@]}" "${THRIFT_APPS[@]}")
             INCLUDE_FILE=true
-            TO_DEPLOY+=(TC12_FileSource.siddhi)
             ;;
         TC*)
             # Match by number prefix or full filename

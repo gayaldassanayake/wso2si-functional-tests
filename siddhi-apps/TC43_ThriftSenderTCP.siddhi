@@ -1,0 +1,23 @@
+@App:name('TC43_ThriftSenderTCP')
+@App:description('TC43: receives HTTP events and publishes them to SI DataBridge via Thrift TCP')
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8117/TC43_ThriftSenderTCP/InStream',
+        basic.auth.enabled='false',
+        @map(type='json'))
+define stream InStream (transport string, symbol string, price double, qty int);
+
+@sink(type='wso2event',
+      wso2.stream.id='TC43Stream:1.0.0',
+      url='tcp://localhost:7611',
+      auth.url='ssl://localhost:7711',
+      username='admin',
+      password='admin',
+      protocol='thrift',
+      mode='blocking',
+      @map(type='wso2event'))
+define stream OutStream (transport string, symbol string, price double, qty int);
+
+from InStream
+select transport, symbol, price, qty
+insert into OutStream;

@@ -4,6 +4,8 @@
 # Usage:
 #   ./scripts/setup.sh --kafka          # Start Kafka + Zookeeper only
 #   ./scripts/setup.sh --mysql          # Start MySQL only
+#   ./scripts/setup.sh --rabbitmq       # Start RabbitMQ only
+#   ./scripts/setup.sh --redis          # Start Redis only
 #   ./scripts/setup.sh --all            # Start all services
 
 set -euo pipefail
@@ -16,21 +18,25 @@ COMPOSE_FILE="${SUITE_ROOT}/infra/docker-compose.yml"
 
 WITH_KAFKA=false
 WITH_MYSQL=false
+WITH_RABBITMQ=false
+WITH_REDIS=false
 
 for arg in "$@"; do
     case "$arg" in
-        --kafka) WITH_KAFKA=true ;;
-        --mysql) WITH_MYSQL=true ;;
-        --all)   WITH_KAFKA=true; WITH_MYSQL=true ;;
+        --kafka)    WITH_KAFKA=true ;;
+        --mysql)    WITH_MYSQL=true ;;
+        --rabbitmq) WITH_RABBITMQ=true ;;
+        --redis)    WITH_REDIS=true ;;
+        --all)      WITH_KAFKA=true; WITH_MYSQL=true; WITH_RABBITMQ=true; WITH_REDIS=true ;;
         *)
-            echo "Usage: $0 [--kafka] [--mysql] [--all]"
+            echo "Usage: $0 [--kafka] [--mysql] [--rabbitmq] [--redis] [--all]"
             exit 1
             ;;
     esac
 done
 
-if [[ "$WITH_KAFKA" == "false" && "$WITH_MYSQL" == "false" ]]; then
-    echo "Specify at least one service: --kafka, --mysql, or --all"
+if [[ "$WITH_KAFKA" == "false" && "$WITH_MYSQL" == "false" && "$WITH_RABBITMQ" == "false" && "$WITH_REDIS" == "false" ]]; then
+    echo "Specify at least one service: --kafka, --mysql, --rabbitmq, --redis, or --all"
     exit 1
 fi
 
@@ -47,6 +53,12 @@ if [[ "$WITH_KAFKA" == "true" ]]; then
 fi
 if [[ "$WITH_MYSQL" == "true" ]]; then
     SERVICES+=("mysql")
+fi
+if [[ "$WITH_RABBITMQ" == "true" ]]; then
+    SERVICES+=("rabbitmq")
+fi
+if [[ "$WITH_REDIS" == "true" ]]; then
+    SERVICES+=("redis")
 fi
 
 echo "Starting services: ${SERVICES[*]}"
@@ -82,6 +94,12 @@ fi
 if [[ "$WITH_MYSQL" == "true" ]]; then
     wait_healthy "si-test-mysql"
 fi
+if [[ "$WITH_RABBITMQ" == "true" ]]; then
+    wait_healthy "si-test-rabbitmq"
+fi
+if [[ "$WITH_REDIS" == "true" ]]; then
+    wait_healthy "si-test-redis"
+fi
 
 # ─── Kafka post-setup ────────────────────────────────────────────────────────
 if [[ "$WITH_KAFKA" == "true" ]]; then
@@ -92,6 +110,20 @@ if [[ "$WITH_KAFKA" == "true" ]]; then
             --create --topic "${topic}" --partitions 1 --replication-factor 1 \
             --if-not-exists 2>/dev/null && echo "  Topic '${topic}': OK" || true
     done
+fi
+
+# ─── RabbitMQ post-setup ─────────────────────────────────────────────────────
+if [[ "$WITH_RABBITMQ" == "true" ]]; then
+    echo "Declaring RabbitMQ topology..."
+    bash "${SUITE_ROOT}/infra/rabbitmq-init/declare.sh" "${RABBITMQ_CONTAINER}"
+fi
+
+# ─── Redis post-setup ────────────────────────────────────────────────────────
+if [[ "$WITH_REDIS" == "true" ]]; then
+    echo "Verifying Redis..."
+    docker exec "${REDIS_CONTAINER}" redis-cli ping 2>/dev/null | grep -q PONG \
+        && echo "  Redis: PONG received" \
+        || echo "[WARN] Redis ping failed"
 fi
 
 # ─── MySQL post-setup ────────────────────────────────────────────────────────

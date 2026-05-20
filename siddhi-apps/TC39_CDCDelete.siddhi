@@ -1,0 +1,21 @@
+@App:name('TC39_CDCDelete')
+@App:description('CDC listening mode: Debezium binlog DELETE capture (one connector avoids JMX conflict)')
+
+@source(type='cdc',
+        url='jdbc:mysql://localhost:3307/si_test_db?useSSL=false&allowPublicKeyRetrieval=true',
+        mode='listening',
+        jdbc.driver.name='com.mysql.cj.jdbc.Driver',
+        username='sitest',
+        password='sitest123',
+        table.name='cdc_listen_table',
+        operation='delete',
+        @map(type='keyvalue'))
+define stream CDCDeleteStream (before_order_id int, before_product string,
+                               before_quantity int, before_price double);
+
+@sink(type='log', prefix='[TC39-DELETE]')
+define stream DeleteLogStream (before_order_id int, before_product string);
+
+from CDCDeleteStream
+select before_order_id, before_product
+insert into DeleteLogStream;

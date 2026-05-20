@@ -1,0 +1,68 @@
+@App:name('TC44_HttpRequestResponse')
+@App:description('HTTP call-out pattern: http-request sink + http-response source (sink.id), http-service + http-service-response (source.id/message.id)')
+
+/*
+Tests: http-request sink correlated with http-response source via sink.id;
+       http-service source correlated with http-service-response sink via source.id + message.id.
+       Self-loop: TriggerStream (port 8119) → http-request → EchoIn (http-service on 8120).
+       The http-service endpoint echoes via http-service-response, which the http-response source captures.
+Port : 8119 (/TriggerStream), 8120 (/EchoIn)
+Deps : none
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8119/TC44_HttpRequestResponse/TriggerStream',
+        @map(type='json'))
+define stream TriggerStream (name string, value double);
+
+@source(type='http-service',
+        receiver.url='http://0.0.0.0:8120/TC44_HttpRequestResponse/EchoIn',
+        source.id='tc44-echo-service',
+        @map(type='json',
+             @attributes(messageId='trp:messageId', name='$.event.name', value='$.event.value')))
+define stream EchoInStream (messageId string, name string, value double);
+
+@sink(type='http-service-response',
+      source.id='tc44-echo-service',
+      message.id='{{messageId}}',
+      @map(type='json'))
+define stream EchoReplyStream (messageId string, name string, value double);
+
+@sink(type='http-request',
+      sink.id='tc44-echo',
+      publisher.url='http://localhost:8120/TC44_HttpRequestResponse/EchoIn',
+      @map(type='json'))
+define stream OutboundStream (name string, value double);
+
+@source(type='http-response',
+        sink.id='tc44-echo',
+        http.status.code='200',
+        @map(type='json',
+             @attributes(name='$.event.name', value='$.event.value')))
+define stream ResponseStream (name string, value double);
+
+@sink(type='log', prefix='[TC44-RECV]')
+define stream EchoLogStream (name string, value double);
+
+@sink(type='log', prefix='[TC44-RESPONSE]')
+define stream ResponseLogStream (name string, value double);
+
+@info(name='trigger-to-outbound')
+from TriggerStream
+select name, value
+insert into OutboundStream;
+
+@info(name='log-echo-received')
+from EchoInStream
+select name, value
+insert into EchoLogStream;
+
+@info(name='echo-reply')
+from EchoInStream
+select messageId, name, value
+insert into EchoReplyStream;
+
+@info(name='log-response')
+from ResponseStream
+select name, value
+insert into ResponseLogStream;

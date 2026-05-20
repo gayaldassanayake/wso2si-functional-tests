@@ -15,7 +15,11 @@ if ! ls "${SI_HOME}/lib/mysql-connector"*.jar 2>/dev/null | head -1 | grep -q '.
 fi
 
 log_info "T1: Verify CDC app started successfully"
-assert_log_contains "T1: TC11 app started" 'TC11_CDCPolling.*Started Successfully' 30
+undeploy_app "TC11_CDCPolling.siddhi"
+# Clear any rows left by a previous run before deploying, so CDC doesn't re-capture them
+mysql_query "DELETE FROM cdc_test_table WHERE item_id LIKE 'cdc-%';" >/dev/null 2>&1 || true
+deploy_app   "TC11_CDCPolling.siddhi"
+assert_log_contains "T1: TC11 app started" 'TC11_CDCPolling.*deployed successfully' 30
 
 log_info "T2: Insert row into MySQL cdc_test_table"
 mysql_query "INSERT INTO cdc_test_table (item_id, item_name, quantity) VALUES ('cdc-1', 'Apple', 10);"

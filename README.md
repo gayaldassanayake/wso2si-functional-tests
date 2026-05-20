@@ -1,11 +1,13 @@
 # WSO2 Streaming Integrator — Functional Test Suite
 
-A self-contained regression test suite for WSO2 Streaming Integrator (SI) 4.3.2. It covers:
+A self-contained regression test suite for WSO2 Streaming Integrator (SI) 4.3.x / 4.4.x. It covers:
 
-- **18 SI functional tests** (TC01–TC18) — Siddhi apps, Docker Compose infrastructure, HTTP event injection, log scanning, Store API queries.
+- **22 SI functional tests** (TC01–TC18, TC40–TC42, TC44, TC47) — Siddhi apps, Docker Compose infrastructure, HTTP event injection, log scanning, Store API queries, file sink, gRPC, HTTP request/response, XML emit.
 - **9 Helm chart tests** (TC19–TC27) — template rendering and lint validation for the updated `helm-si` chart with Gateway API support. No cluster required.
 - **7 Kubernetes live tests** (TC28–TC34) — end-to-end validation of the Gateway API resources on a live cluster using Envoy Gateway.
-- **8 SI binary/distribution tool tests** (TC35–TC42) — server lifecycle, bundling tools (jartobundle, osgi-lib, ciphertool), CDC listening via Debezium, file sink, and gRPC echo/consume patterns.
+- **4 distribution tool tests** (TC35–TC38) — server lifecycle, `jartobundle.sh`, `osgi-lib.sh`, `ciphertool.sh`.
+- **1 CDC listening test** (TC39) — MySQL CDC via Debezium binlog (INSERT/UPDATE/DELETE events).
+- **3 optional extension tests** (TC43, TC45, TC46) — Thrift DataBridge, RabbitMQ pass-through, Redis store. Each self-skips when the required SI extension JARs are absent.
 
 ---
 
@@ -273,15 +275,17 @@ HTTP source ports (each Siddhi app binds to a unique port to allow all apps to r
 | TC17 | 8112 |
 | TC18 | 8113 |
 
-TC08 uses Kafka (no HTTP port). TC11 uses CDC source. TC12 uses file source. TC39 uses CDC source (no HTTP port). TC40–TC42 use the ports below.
+TC08 uses Kafka (no HTTP port). TC11 uses CDC source. TC12 uses file source. TC39 uses CDC source (no HTTP port). TC40–TC47 use the ports below.
 
-| TC | Port |
-|---|---|
-| TC40 | 8114 |
-| TC41 | 8115 |
-| TC42 | 8116 |
-
-TC41 also opens gRPC port 8283 (grpc-service). TC42 also opens gRPC port 8183 (grpc consume).
+| TC | Port | Notes |
+|---|---|---|
+| TC40 | 8114 | |
+| TC41 | 8115 | + gRPC port 8283 (grpc-service) |
+| TC42 | 8116 | + gRPC port 8183 (grpc consume) |
+| TC43 | — | Thrift TCP 7611 / SSL 7711 (SI DataBridge ports) |
+| TC44 | 8119 | + echo port 8120 (http-service self-loop) |
+| TC46 | 8121 | |
+| TC47 | 8122 | + echo port 8123 (XML self-loop receiver) |
 
 ---
 
@@ -326,13 +330,13 @@ These tests validate the updated `helm-si` chart's Gateway API support using `he
 | TC26 | `test_tc26_rate_limit_policy.sh` | `BackendTrafficPolicy` Envoy API group, `type: Local`, `requests`/`unit` values |
 | TC27 | `test_tc27_mutual_exclusion.sh` | `gatewayApi.enabled=true` takes precedence over `ingress.enabled=true` |
 
-### Distribution Tool and Binary Tests (TC35–TC42)
+### Distribution Tool Tests (TC35–TC38)
 
 TC35 is **standalone** — it starts and stops the SI server itself and must run *before* the main SI instance is started.
 
-TC36–TC38 test the WSO2 SI distribution tools. They require `TOOLS_PACK_HOME` to point at a valid SI installation (typically a 4.4.0-SNAPSHOT build with `bin/jartobundle.sh`, `bin/osgi-lib.sh`, and `bin/ciphertool.sh`).
+TC36–TC38 test the WSO2 SI distribution tools. They require `TOOLS_PACK_HOME` to point at a valid SI installation with `bin/jartobundle.sh`, `bin/osgi-lib.sh`, and `bin/ciphertool.sh`.
 
-TC39 requires MySQL (CDC listening mode via Debezium). TC40–TC42 are grouped with the core SI functional tests and run alongside TC01–TC18 when the main SI server is running.
+**Note:** `osgi-lib.sh` and `ciphertool.sh` reject JDK versions above 11. TC37 and TC38 automatically override `JAVA_HOME` to a JDK 11 installation at `/Library/Java/JavaVirtualMachines/graalvm-ce-java11-22.3.0/Contents/Home` when the active JDK is newer. If that path does not exist, the test self-skips.
 
 | TC | Script | Feature Area | External Deps |
 |---|---|---|---|
@@ -340,10 +344,36 @@ TC39 requires MySQL (CDC listening mode via Debezium). TC40–TC42 are grouped w
 | TC36 | `test_tc36_jartobundle.sh` | `jartobundle.sh` — JAR to OSGi bundle conversion | `TOOLS_PACK_HOME` |
 | TC37 | `test_tc37_osgi_lib.sh` | `osgi-lib.sh` — register new bundle in `bundles.info` | `TOOLS_PACK_HOME` |
 | TC38 | `test_tc38_ciphertool.sh` | `ciphertool.sh` — encrypt/decrypt round-trip | `TOOLS_PACK_HOME` |
+
+### CDC Listening Test (TC39)
+
+TC39 requires MySQL with Debezium-compatible binlog privileges (granted automatically by `infra/mysql-init/01_init.sql`).
+
+| TC | Script | Feature Area | External Deps |
+|---|---|---|---|
 | TC39 | `test_tc39_cdc_listening.sh` | CDC listening mode (Debezium binlog) INSERT/UPDATE/DELETE | MySQL |
+
+### Core SI Runtime Tests (TC40–TC42, TC44, TC47)
+
+These run alongside TC01–TC18 as part of the standard core test run.
+
+| TC | Script | Feature Area | External Deps |
+|---|---|---|---|
 | TC40 | `test_tc40_file_sink.sh` | File sink in append mode, CSV mapping, HTTP trigger | None |
 | TC41 | `test_tc41_grpc_echo.sh` | gRPC request-response (`grpc-service` + `grpc-call`) | None |
 | TC42 | `test_tc42_grpc_consume.sh` | gRPC fire-and-forget (`grpc` source + `grpc` sink) | None |
+| TC44 | `test_tc44_http_request_response.sh` | `http-request` sink + `http-response` source (sink.id correlation); `http-service` self-loop | None |
+| TC47 | `test_tc47_xml_emit.sh` | XML emit via HTTP sink, XPath ingest, `ifThenElse` classification, self-loop round-trip | None |
+
+### Optional Extension Tests (TC43, TC45, TC46)
+
+These tests self-skip when the required SI extension JARs are absent from `${SI_HOME}/wso2/lib/plugins/` (or `lib/`). They can be run with the corresponding flag once the extensions are installed.
+
+| TC | Script | Feature Area | External Deps |
+|---|---|---|---|
+| TC43 | `test_tc43_thrift_databridge.sh` | Thrift DataBridge — WSO2Event TCP + SSL transport | `siddhi-io-wso2event`, `siddhi-map-wso2event` JARs |
+| TC45 | `test_tc45_rabbitmq.sh` | RabbitMQ source + filter + sink pass-through | `siddhi-io-rabbitmq` JARs + RabbitMQ broker |
+| TC46 | `test_tc46_redis_store.sh` | `@store(type='redis')` PK upsert + Store API | `siddhi-store-redis` JAR + Redis |
 
 ### Kubernetes Live Tests — Gateway API (TC28–TC34)
 
@@ -442,23 +472,51 @@ Run a single K8s test directly:
 bash scripts/test_tc32_k8s_https_routing.sh
 ```
 
-### Distribution tool tests (TC35–TC42)
+### Distribution tool tests (TC35–TC38)
 
 TC35 is standalone — run it **before** starting the SI server:
 
 ```bash
-export TOOLS_PACK_HOME=/path/to/wso2si-4.4.0-SNAPSHOT
+export TOOLS_PACK_HOME=/path/to/wso2si-4.4.0
 bash scripts/test_tc35_server_lifecycle.sh
 ```
 
 TC36–TC38 test distribution tools and run while SI is **not** running (they don't need a live server):
 
 ```bash
-export TOOLS_PACK_HOME=/path/to/wso2si-4.4.0-SNAPSHOT
+export TOOLS_PACK_HOME=/path/to/wso2si-4.4.0
 ./run_all_tests.sh --with-tools
 ```
 
-TC39–TC42 are included automatically in `--all` / `--with-mysql` runs alongside the core SI tests. TC39 requires MySQL (see [With MySQL](#with-mysql)). TC40–TC42 require only a running SI server.
+If your active JDK is newer than 11, TC37 and TC38 automatically fall back to the GraalVM CE JDK 11 at `/Library/Java/JavaVirtualMachines/graalvm-ce-java11-22.3.0/Contents/Home`. If that JDK is not installed they self-skip.
+
+### CDC listening test (TC39)
+
+TC39 requires MySQL with Debezium privileges. It is included in `--with-mysql` / `--all` runs:
+
+```bash
+./scripts/setup.sh --mysql
+./run_all_tests.sh --with-mysql   # includes TC39 alongside TC07 and TC11
+```
+
+TC40–TC42, TC44, TC47 are included automatically in all standard runs alongside TC01–TC18.
+
+### Optional extension tests (TC43, TC45, TC46)
+
+These tests self-skip when the required extension JARs are absent. To run them after installing the extensions:
+
+```bash
+# Thrift DataBridge (requires siddhi-io-wso2event + siddhi-map-wso2event JARs in SI)
+./run_all_tests.sh --with-thrift
+
+# RabbitMQ (requires siddhi-io-rabbitmq JARs + running RabbitMQ broker)
+./scripts/setup.sh --rabbitmq
+./run_all_tests.sh --with-rabbitmq
+
+# Redis store (requires siddhi-store-redis JAR + running Redis)
+./scripts/setup.sh --redis
+./run_all_tests.sh --with-redis
+```
 
 ### Full suite
 
@@ -706,6 +764,12 @@ ls ${SI_HOME}/wso2/server/deployment/siddhi-files
 
 **TC07/TC11 fail with ClassNotFoundException**
 The MySQL JDBC driver JAR is missing from `${SI_HOME}/lib/`. See [MySQL JDBC driver](#mysql-jdbc-driver).
+
+**TC37/TC38 skip with "no JDK 11 found"**
+`osgi-lib.sh` and `ciphertool.sh` reject JDK > 11. TC37 and TC38 look for a JDK 11 installation at `/Library/Java/JavaVirtualMachines/graalvm-ce-java11-22.3.0/Contents/Home` and skip if it is absent. Install GraalVM CE 22.3.0 (Java 11) or change the `JAVA11=` path at the top of each script to point at any JDK 11 home on your system.
+
+**TC43 skips with "siddhi-io-wso2event extension not found"**
+The Thrift DataBridge test requires `siddhi-io-wso2event` and `siddhi-map-wso2event` JARs installed in `${SI_HOME}/wso2/lib/plugins/`. These are not bundled with the standard SI distribution. Run `./run_all_tests.sh --with-thrift` only after installing them.
 
 **TC08 fails with "Kafka broker not available"**
 Either the Kafka Docker container is not running (`./scripts/setup.sh --kafka`) or the Kafka OSGi JARs are not in `${SI_HOME}/lib/`.

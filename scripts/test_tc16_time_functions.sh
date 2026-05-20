@@ -6,6 +6,11 @@ source "${SCRIPT_DIR}/lib/common.sh"
 CURRENT_TC="TC16"
 
 require_si_running
+
+undeploy_app "TC16_TimeFunctions.siddhi"
+deploy_app   "TC16_TimeFunctions.siddhi"
+assert_log_contains "TC16 app started" 'TC16_TimeFunctions.*deployed successfully' 30
+
 URL="http://localhost:${PORT_TC16}/TC16_TimeFunctions/EventStream"
 
 log_info "T1: Send event with a known date, verify time functions produce output"

@@ -9,6 +9,8 @@ require_si_running
 SALES_URL="http://localhost:${PORT_TC09}/TC09_IncrementalAggregation/SalesStream"
 QUERY_URL="http://localhost:${PORT_TC09}/TC09_IncrementalAggregation/QueryStream"
 
+assert_log_contains "app deployed" 'TC09_IncrementalAggregation.*deployed successfully' 30
+
 # Generate timestamps in epoch milliseconds
 NOW_MS=$(python3 -c "import time; print(int(time.time() * 1000))")
 

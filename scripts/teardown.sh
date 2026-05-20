@@ -5,6 +5,8 @@
 #   ./scripts/teardown.sh               # Remove all TC apps from SI (leave Docker running)
 #   ./scripts/teardown.sh --kafka       # Also stop Kafka + Zookeeper
 #   ./scripts/teardown.sh --mysql       # Also stop MySQL
+#   ./scripts/teardown.sh --rabbitmq    # Also stop RabbitMQ
+#   ./scripts/teardown.sh --redis       # Also stop Redis
 #   ./scripts/teardown.sh --all         # Remove apps + stop all Docker services
 
 set -euo pipefail
@@ -17,14 +19,18 @@ COMPOSE_FILE="${SUITE_ROOT}/infra/docker-compose.yml"
 
 STOP_KAFKA=false
 STOP_MYSQL=false
+STOP_RABBITMQ=false
+STOP_REDIS=false
 
 for arg in "$@"; do
     case "$arg" in
-        --kafka) STOP_KAFKA=true ;;
-        --mysql) STOP_MYSQL=true ;;
-        --all)   STOP_KAFKA=true; STOP_MYSQL=true ;;
+        --kafka)    STOP_KAFKA=true ;;
+        --mysql)    STOP_MYSQL=true ;;
+        --rabbitmq) STOP_RABBITMQ=true ;;
+        --redis)    STOP_REDIS=true ;;
+        --all)      STOP_KAFKA=true; STOP_MYSQL=true; STOP_RABBITMQ=true; STOP_REDIS=true ;;
         *)
-            echo "Usage: $0 [--kafka] [--mysql] [--all]"
+            echo "Usage: $0 [--kafka] [--mysql] [--rabbitmq] [--redis] [--all]"
             exit 1
             ;;
     esac
@@ -57,6 +63,12 @@ if [[ "$STOP_KAFKA" == "true" ]]; then
 fi
 if [[ "$STOP_MYSQL" == "true" ]]; then
     SERVICES+=("mysql")
+fi
+if [[ "$STOP_RABBITMQ" == "true" ]]; then
+    SERVICES+=("rabbitmq")
+fi
+if [[ "$STOP_REDIS" == "true" ]]; then
+    SERVICES+=("redis")
 fi
 
 if [[ ${#SERVICES[@]} -gt 0 ]]; then

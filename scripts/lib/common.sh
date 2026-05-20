@@ -72,6 +72,14 @@ require_kafka_running() {
     require_docker_container "${KAFKA_CONTAINER}"
 }
 
+require_rabbitmq_running() {
+    require_docker_container "${RABBITMQ_CONTAINER}"
+}
+
+require_redis_running() {
+    require_docker_container "${REDIS_CONTAINER}"
+}
+
 require_file() {
     local path="$1"
     if [[ ! -f "${path}" ]]; then
@@ -109,7 +117,7 @@ wait_for_log() {
     local timeout="${2:-30}"
     local elapsed=0
     while (( elapsed < timeout )); do
-        if tail -n "${LOG_TAIL_LINES}" "${SI_LOG}" 2>/dev/null | grep -qE "${pattern}"; then
+        if tail -n "${LOG_TAIL_LINES}" "${SI_LOG}" 2>/dev/null | grep -E "${pattern}" > /dev/null; then
             return 0
         fi
         sleep 1
@@ -139,7 +147,7 @@ assert_log_not_contains() {
     local pattern="$2"
     local wait_secs="${3:-3}"
     sleep "${wait_secs}"
-    if tail -n "${LOG_TAIL_LINES}" "${SI_LOG}" 2>/dev/null | grep -qE "${pattern}"; then
+    if tail -n "${LOG_TAIL_LINES}" "${SI_LOG}" 2>/dev/null | grep -E "${pattern}" > /dev/null; then
         log_fail "${description}: pattern '${pattern}' was found in log but should NOT be"
         return 1
     else
@@ -527,6 +535,48 @@ assert_dir_file_count() {
         log_pass "${description} (${actual} files)"; return 0
     else
         log_fail "${description}: expected ${expected} matching '${pattern}', got ${actual}"; return 1
+    fi
+}
+
+# ─── RabbitMQ helpers ────────────────────────────────────────────────────────
+
+# Publish a JSON payload to a RabbitMQ exchange via rabbitmqadmin inside the container.
+rabbitmq_publish() {
+    local exchange="$1"
+    local routing_key="$2"
+    local payload="$3"
+    docker exec "${RABBITMQ_CONTAINER}" \
+        rabbitmqadmin publish exchange="${exchange}" routing_key="${routing_key}" \
+        payload="${payload}" 2>/dev/null
+}
+
+# Consume (get) up to N messages from a RabbitMQ queue. Returns raw rabbitmqadmin table output.
+rabbitmq_get() {
+    local queue="$1"
+    local count="${2:-5}"
+    docker exec "${RABBITMQ_CONTAINER}" \
+        rabbitmqadmin get queue="${queue}" count="${count}" ackmode=ack_requeue_false 2>/dev/null || true
+}
+
+# ─── Redis helpers ────────────────────────────────────────────────────────────
+
+# Run a redis-cli command inside the Redis container.
+redis_cli() {
+    docker exec "${REDIS_CONTAINER}" redis-cli "$@" 2>/dev/null
+}
+
+# Assert that Redis DBSIZE is at least the expected number.
+assert_redis_key_count_gte() {
+    local description="$1"
+    local expected="$2"
+    local actual
+    actual=$(redis_cli DBSIZE | tr -d '[:space:]')
+    if [[ "${actual}" -ge "${expected}" ]] 2>/dev/null; then
+        log_pass "${description} (Redis DBSIZE=${actual})"
+        return 0
+    else
+        log_fail "${description}: expected DBSIZE >= ${expected}, got '${actual}'"
+        return 1
     fi
 }
 

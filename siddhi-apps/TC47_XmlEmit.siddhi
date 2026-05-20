@@ -1,0 +1,55 @@
+@App:name('TC47_XmlEmit')
+@App:description('XML emit via HTTP sink: XPath ingest, http sink with XML output, self-loop round-trip, ifThenElse classification')
+
+/*
+Tests: @map(type='xml') on an HTTP sink to emit serialized XML; http source XPath @attributes
+       ingest; self-loop round-trip proves both XML producer and XML consumer paths;
+       ifThenElse conditional field derivation.
+Port : 8122 (/XmlInStream), 8123 (/XmlEcho)
+Deps : none
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8122/TC47_XmlEmit/XmlInStream',
+        @map(type='xml',
+             @attributes(productId='//product/@id',
+                         name='//product/name',
+                         price='//product/price')))
+define stream XmlInputStream (productId string, name string, price double);
+
+@sink(type='http',
+      publisher.url='http://localhost:8123/TC47_XmlEmit/XmlEcho',
+      @map(type='xml'))
+define stream XmlForwardStream (productId string, name string, price double, priceTag string);
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8123/TC47_XmlEmit/XmlEcho',
+        @map(type='xml',
+             @attributes(productId='//productId',
+                         name='//name',
+                         price='//price',
+                         priceTag='//priceTag')))
+define stream XmlEchoStream (productId string, name string, price double, priceTag string);
+
+@sink(type='log', prefix='[TC47-XML-PARSED]')
+define stream XmlParsedLogStream (productId string, name string, price double, priceTag string);
+
+@sink(type='log', prefix='[TC47-XML-ECHO]')
+define stream XmlEchoLogStream (productId string, name string, price double, priceTag string);
+
+@info(name='classify-and-forward')
+from XmlInputStream
+select productId, name, price,
+       ifThenElse(price > 20.0, 'premium', 'standard') as priceTag
+insert into XmlForwardStream;
+
+@info(name='log-parsed')
+from XmlInputStream
+select productId, name, price,
+       ifThenElse(price > 20.0, 'premium', 'standard') as priceTag
+insert into XmlParsedLogStream;
+
+@info(name='log-echo')
+from XmlEchoStream
+select productId, name, price, priceTag
+insert into XmlEchoLogStream;

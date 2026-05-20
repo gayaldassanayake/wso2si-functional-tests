@@ -6,6 +6,11 @@ source "${SCRIPT_DIR}/lib/common.sh"
 CURRENT_TC="TC18"
 
 require_si_running
+
+undeploy_app "TC18_ErrorHandling.siddhi"
+deploy_app   "TC18_ErrorHandling.siddhi"
+assert_log_contains "TC18 app started" 'TC18_ErrorHandling.*deployed successfully' 30
+
 URL="http://localhost:${PORT_TC18}/TC18_ErrorHandling/InputStream"
 
 log_info "T1: Send valid numeric string - should go to VALID stream"
