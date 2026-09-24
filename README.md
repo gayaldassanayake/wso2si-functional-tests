@@ -2,7 +2,7 @@
 
 A self-contained regression test suite for WSO2 Streaming Integrator (SI) 4.3.x / 4.4.x. It covers:
 
-- **22 SI functional tests** (TC01–TC18, TC40–TC42, TC44, TC47) — Siddhi apps, Docker Compose infrastructure, HTTP event injection, log scanning, Store API queries, file sink, gRPC, HTTP request/response, XML emit.
+- **24 SI functional tests** (TC01–TC18, TC40–TC42, TC44, TC47, TC50–TC51) — Siddhi apps, Docker Compose infrastructure, HTTP event injection, log scanning, Store API queries, file sink, gRPC, HTTP request/response, XML emit, and JavaScript functions.
 - **9 Helm chart tests** (TC19–TC27) — template rendering and lint validation for the updated `helm-si` chart with Gateway API support. No cluster required.
 - **7 Kubernetes live tests** (TC28–TC34) — end-to-end validation of the Gateway API resources on a live cluster using Envoy Gateway.
 - **4 distribution tool tests** (TC35–TC38) — server lifecycle, `jartobundle.sh`, `osgi-lib.sh`, `ciphertool.sh`.
@@ -289,6 +289,8 @@ TC08 uses Kafka (no HTTP port). TC11 uses CDC source. TC12 uses file source. TC3
 | TC44 | 8119 | + echo port 8120 (http-service self-loop) |
 | TC46 | 8121 | |
 | TC47 | 8122 | + echo port 8123 (XML self-loop receiver) |
+| TC50 | 8124 | JavaScript script function |
+| TC51 | 8125 | JavaScript `js:eval` |
 
 ---
 
@@ -381,7 +383,7 @@ TC48 covers the gap flagged in [siddhi-io-cdc PR #101](https://github.com/siddhi
 
 The test database also needs `wal_level=logical` and `REPLICA IDENTITY FULL` on the captured table — the latter is what makes `before_*` fields populated on UPDATE/DELETE. Both are set by the Compose service and `infra/postgres-init/01_init.sql`.
 
-### Core SI Runtime Tests (TC40–TC42, TC44, TC47)
+### Core SI Runtime Tests (TC40–TC42, TC44, TC47, TC50–TC51)
 
 These run alongside TC01–TC18 as part of the standard core test run.
 
@@ -392,6 +394,8 @@ These run alongside TC01–TC18 as part of the standard core test run.
 | TC42 | `test_tc42_grpc_consume.sh` | gRPC fire-and-forget (`grpc` source + `grpc` sink) | None |
 | TC44 | `test_tc44_http_request_response.sh` | `http-request` sink + `http-response` source (sink.id correlation); `http-service` self-loop | None |
 | TC47 | `test_tc47_xml_emit.sh` | XML emit via HTTP sink, XPath ingest, `ifThenElse` classification, self-loop round-trip | None |
+| TC50 | `test_tc50_javascript_function.sh` | `script:javascript` named function with string transformation | `siddhi-script-js` |
+| TC51 | `test_tc51_javascript_eval.sh` | `js:eval` dynamic arithmetic and boolean expressions | `siddhi-script-js` |
 
 ### Optional Extension Tests (TC43, TC45, TC46)
 
@@ -541,7 +545,7 @@ TC39 requires MySQL with Debezium privileges. It is included in `--with-mysql` /
 ./run_all_tests.sh --with-mysql   # includes TC39 alongside TC07 and TC11
 ```
 
-TC40–TC42, TC44, TC47 are included automatically in all standard runs alongside TC01–TC18.
+TC40–TC42, TC44, TC47, TC50, and TC51 are included automatically in all standard runs alongside TC01–TC18.
 
 ### Optional extension tests (TC43, TC45, TC46)
 

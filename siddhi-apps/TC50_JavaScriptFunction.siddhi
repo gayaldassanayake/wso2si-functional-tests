@@ -1,0 +1,27 @@
+@App:name('TC50_JavaScriptFunction')
+@App:description('JavaScript script function: transform HTTP profile events with a named JavaScript function')
+
+/*
+Tests: script:javascript named-function execution, String.trim(), String.toUpperCase().
+Port : 8124
+Deps : siddhi-script-js
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8124/TC50_JavaScriptFunction/ProfileStream',
+        @map(type='json'))
+define stream ProfileStream (profileId string, firstName string, lastName string);
+
+@sink(type='log', prefix='[TC50-JS]')
+define stream GreetingStream (profileId string, greeting string);
+
+define function formatGreeting[JavaScript] return string {
+    var firstName = data[0];
+    var lastName = data[1];
+    return 'HELLO ' + firstName.trim().toUpperCase() + ' ' + lastName.trim().toUpperCase();
+};
+
+@info(name='javascript-greeting')
+from ProfileStream
+select profileId, formatGreeting(firstName, lastName) as greeting
+insert into GreetingStream;

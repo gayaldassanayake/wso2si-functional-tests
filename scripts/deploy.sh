@@ -43,6 +43,8 @@ CORE_APPS=(
     TC42_GrpcSender.siddhi
     TC44_HttpRequestResponse.siddhi
     TC47_XmlEmit.siddhi
+    TC50_JavaScriptFunction.siddhi
+    TC51_JavaScriptEval.siddhi
 )
 KAFKA_APPS=(TC08_KafkaPassThrough.siddhi)
 MYSQL_APPS=(TC07_MySQLPersist.siddhi TC11_CDCPolling.siddhi)

@@ -293,6 +293,8 @@ tc_script() {
         TC45) echo "test_tc45_rabbitmq.sh" ;;
         TC46) echo "test_tc46_redis_store.sh" ;;
         TC47) echo "test_tc47_xml_emit.sh" ;;
+        TC50) echo "test_tc50_javascript_function.sh" ;;
+        TC51) echo "test_tc51_javascript_eval.sh" ;;
         *) echo "" ;;
     esac
 }
@@ -346,6 +348,8 @@ tc_label() {
         TC45) echo "RabbitMQ pass-through — source + filter + sink [requires RabbitMQ]" ;;
         TC46) echo "Redis store — @store(type=redis) PK upsert + Store API [requires Redis]" ;;
         TC47) echo "XML emit via HTTP sink — self-loop round-trip with ifThenElse classification" ;;
+        TC50) echo "JavaScript script function — named function transformation" ;;
+        TC51) echo "JavaScript js:eval — dynamic arithmetic and boolean expressions" ;;
         TC48) echo "PostgreSQL CDC listening mode — INSERT/UPDATE/DELETE via Debezium logical replication [requires PostgreSQL]" ;;
         TC49) echo "PostgreSQL CDC polling mode [requires PostgreSQL]" ;;
         *) echo "Unknown" ;;
@@ -353,7 +357,7 @@ tc_label() {
 }
 
 # Core tests (always run unless specific TCs are given)
-CORE_TCS=(TC01 TC02 TC03 TC04 TC05 TC06 TC09 TC10 TC12 TC13 TC14 TC15 TC16 TC17 TC18 TC40 TC41 TC42 TC44 TC47)
+CORE_TCS=(TC01 TC02 TC03 TC04 TC05 TC06 TC09 TC10 TC12 TC13 TC14 TC15 TC16 TC17 TC18 TC40 TC41 TC42 TC44 TC47 TC50 TC51)
 
 # Optional infra-dependent tests
 KAFKA_TCS=(TC08)

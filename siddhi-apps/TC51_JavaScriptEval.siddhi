@@ -1,0 +1,23 @@
+@App:name('TC51_JavaScriptEval')
+@App:description('JavaScript expression evaluation: evaluate dynamic arithmetic and boolean expressions from HTTP events')
+
+/*
+Tests: js:eval() with double and bool return types.
+Port : 8125
+Deps : siddhi-script-js
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8125/TC51_JavaScriptEval/ExpressionStream',
+        @map(type='json'))
+define stream ExpressionStream (expressionId string, arithmeticExpression string, conditionExpression string);
+
+@sink(type='log', prefix='[TC51-EVAL]')
+define stream EvaluationResultStream (expressionId string, result double, condition bool);
+
+@info(name='javascript-evaluation')
+from ExpressionStream
+select expressionId,
+       js:eval(arithmeticExpression, 'double') as result,
+       js:eval(conditionExpression, 'bool') as condition
+insert into EvaluationResultStream;
