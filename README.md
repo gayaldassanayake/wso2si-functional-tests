@@ -5,7 +5,7 @@ A self-contained regression test suite for WSO2 Streaming Integrator (SI) 4.3.x 
 - **24 SI functional tests** (TC01–TC18, TC40–TC42, TC44, TC47, TC50–TC51) — Siddhi apps, Docker Compose infrastructure, HTTP event injection, log scanning, Store API queries, file sink, gRPC, HTTP request/response, XML emit, and JavaScript functions.
 - **9 Helm chart tests** (TC19–TC27) — template rendering and lint validation for the updated `helm-si` chart with Gateway API support. No cluster required.
 - **7 Kubernetes live tests** (TC28–TC34) — end-to-end validation of the Gateway API resources on a live cluster using Envoy Gateway.
-- **4 distribution tool tests** (TC35–TC38) — server lifecycle, `jartobundle.sh`, `osgi-lib.sh`, `ciphertool.sh`.
+- **5 distribution tool tests** (TC35–TC38, TC53) — server lifecycle, `jartobundle.sh`, `osgi-lib.sh`, `ciphertool.sh`, dependency version floors.
 - **2 PostgreSQL CDC tests** (TC48, TC49) — listening mode via Debezium logical replication, and polling mode.
 - **1 Oracle LDAP naming test** (TC52) — RDBMS store on Oracle reached through a `jdbc:oracle:thin:@ldap://` URL.
 - **1 CDC listening test** (TC39) — MySQL CDC via Debezium binlog (INSERT/UPDATE/DELETE events).
@@ -351,6 +351,7 @@ TC36–TC38 test the WSO2 SI distribution tools. They require `TOOLS_PACK_HOME` 
 | TC36 | `test_tc36_jartobundle.sh` | `jartobundle.sh` — JAR to OSGi bundle conversion | `TOOLS_PACK_HOME` |
 | TC37 | `test_tc37_osgi_lib.sh` | `osgi-lib.sh` — register new bundle in `bundles.info` | `TOOLS_PACK_HOME` |
 | TC38 | `test_tc38_ciphertool.sh` | `ciphertool.sh` — encrypt/decrypt round-trip | `TOOLS_PACK_HOME` |
+| TC53 | `test_tc53_dependency_floors.sh` | Netty/Jackson security floors (`NETTY_MIN_VERSION`, `JACKSON_MIN_VERSION`), no duplicate versions, no dangling `bundles.info` entries | `TOOLS_PACK_HOME` |
 
 ### CDC Listening Test (TC39)
 

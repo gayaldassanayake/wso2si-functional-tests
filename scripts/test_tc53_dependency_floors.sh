@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# TC53: Distribution dependency hygiene — security version floors and bundles.info integrity
+set -uo pipefail
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "${SCRIPT_DIR}/lib/common.sh"
+CURRENT_TC="TC53"
+
+BUNDLES_INFO="${TOOLS_PACK_HOME}/wso2/server/configuration/org.eclipse.equinox.simpleconfigurator/bundles.info"
+require_file "${BUNDLES_INFO}"
+
+# Prints "<symbolic-name> <version>" for bundles matching a regex, one per line.
+bundles_matching() {
+    grep -vE '^#' "${BUNDLES_INFO}" | awk -F, -v re="$1" '$1 ~ re {print $1, $2}'
+}
+
+# Returns 0 when version $1 >= version $2 (numeric compare of the dotted prefix).
+version_ge() {
+    python3 - "$1" "$2" <<'EOF'
+import re, sys
+def key(v):
+    return [int(x) for x in re.findall(r'\d+', v)[:3]]
+sys.exit(0 if key(sys.argv[1]) >= key(sys.argv[2]) else 1)
+EOF
+}
+
+assert_floor() {
+    local label="$1" regex="$2" floor="$3"
+    local below="" count=0 name version
+    while read -r name version; do
+        [[ -z "${name}" ]] && continue
+        (( count++ )) || true
+        version_ge "${version}" "${floor}" || below+=" ${name}:${version}"
+    done < <(bundles_matching "${regex}")
+    if [[ ${count} -eq 0 ]]; then
+        log_fail "${label}: no bundles matched '${regex}'"
+    elif [[ -z "${below}" ]]; then
+        log_pass "${label}: all ${count} bundles >= ${floor}"
+    else
+        log_fail "${label}: below ${floor}:${below}"
+    fi
+}
+
+log_info "T1: Netty modules at or above ${NETTY_MIN_VERSION}"
+assert_floor "T1: Netty" '^io\.netty\.(buffer|codec|codec-http|codec-http2|codec-socks|common|handler|handler-proxy|resolver|transport|transport-native-unix-common)$' "${NETTY_MIN_VERSION}"
+
+log_info "T2: Jackson core/databind/yaml at or above ${JACKSON_MIN_VERSION}"
+assert_floor "T2: Jackson" '^com\.fasterxml\.jackson\.(core\.jackson-core|core\.jackson-databind|dataformat\.jackson-dataformat-yaml)$' "${JACKSON_MIN_VERSION}"
+
+log_info "T3: no Netty or Jackson bundle installed at two versions"
+dups=$(bundles_matching '^(io\.netty\.|com\.fasterxml\.jackson\.)' | awk '{print $1}' | sort | uniq -d | tr '\n' ' ')
+if [[ -z "${dups}" ]]; then
+    log_pass "T3: no duplicate Netty/Jackson bundles"
+else
+    log_fail "T3: installed at more than one version: ${dups}"
+fi
+
+log_info "T4: every bundles.info entry points at an existing file"
+dangling=""
+server_dir="${TOOLS_PACK_HOME}/wso2/server"
+while IFS=, read -r name version path _; do
+    [[ "${name}" == \#* || -z "${path}" ]] && continue
+    [[ -e "${server_dir}/${path}" ]] || dangling+=" ${name}:${version}"
+done < "${BUNDLES_INFO}"
+if [[ -z "${dangling}" ]]; then
+    log_pass "T4: no dangling bundles.info entries"
+else
+    log_fail "T4: entries without a jar:${dangling}"
+fi
+
+print_summary; tc_exit_code

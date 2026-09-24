@@ -285,6 +285,7 @@ tc_script() {
         TC36) echo "test_tc36_jartobundle.sh" ;;
         TC37) echo "test_tc37_osgi_lib.sh" ;;
         TC38) echo "test_tc38_ciphertool.sh" ;;
+        TC53) echo "test_tc53_dependency_floors.sh" ;;
         TC39) echo "test_tc39_cdc_listening.sh" ;;
         TC48) echo "test_tc48_pg_cdc_listening.sh" ;;
         TC49) echo "test_tc49_pg_cdc_polling.sh" ;;
@@ -343,6 +344,7 @@ tc_label() {
         TC36) echo "jartobundle.sh — JAR to OSGi bundle conversion" ;;
         TC37) echo "osgi-lib.sh — OSGi lib deployment to server runtime" ;;
         TC38) echo "ciphertool.sh — encrypt/decrypt round-trip" ;;
+        TC53) echo "Dependency floors — Netty/Jackson minimum versions and bundles.info integrity" ;;
         TC39) echo "MySQL CDC listening mode — INSERT/UPDATE/DELETE via Debezium [requires MySQL]" ;;
         TC40) echo "File sink — HTTP events written to CSV file" ;;
         TC41) echo "gRPC echo — request-response round-trip (grpc-service + grpc-call)" ;;
@@ -372,7 +374,7 @@ REDIS_TCS=(TC46)
 POSTGRES_TCS=(TC48 TC49)
 ORACLE_LDAP_TCS=(TC52)
 THRIFT_TCS=(TC43)
-TOOLS_TCS=(TC36 TC37 TC38)  # TC35 is standalone — run before starting SI
+TOOLS_TCS=(TC36 TC37 TC38 TC53)  # TC35 is standalone — run before starting SI
 
 if [[ ${#SPECIFIC_TCS[@]} -gt 0 ]]; then
     # Run only specified TCs
