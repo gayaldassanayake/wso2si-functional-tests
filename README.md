@@ -395,7 +395,7 @@ Covers BNYMDMAPROD-232. The Oracle thin driver resolves `jdbc:oracle:thin:@ldap:
 
 Compose seeds OpenLDAP with a minimal Oracle Net schema (`infra/ldap-init/`) and a `FREEPDB1` net-service entry pointing at the Oracle container.
 
-carbon-jndi only hands out JNDI factories registered as OSGi services, so the JDK's `com.sun.jndi.ldap.LdapCtxFactory` must be registered by a bundle. `infra/ldap-ctx-bundle/` builds a minimal one, equivalent to the provider bundle customers deploy for Oracle LDAP naming. On JDK 17+ the JVM must also be started with `--add-exports=java.naming/com.sun.jndi.ldap=ALL-UNNAMED`, otherwise that bundle cannot instantiate the factory.
+carbon-jndi only hands out JNDI factories registered as OSGi services, so the JDK's `com.sun.jndi.ldap.LdapCtxFactory` must be registered by a bundle. `infra/ldap-ctx-bundle/` builds a minimal one, equivalent to the provider bundle customers deploy for Oracle LDAP naming. On JDK 17+ that bundle needs `--add-exports=java.naming/com.sun.jndi.ldap=ALL-UNNAMED` to instantiate the factory. SI 4.4.1's `carbon.sh`/`carbon.bat` pass it; for older packs set it through `JAVA_OPTS`.
 
 ### Core SI Runtime Tests (TC40–TC42, TC44, TC47, TC50–TC51)
 
@@ -487,8 +487,9 @@ ${SI_HOME}/bin/jartobundle.sh ojdbc11-23.26.3.0.0.jar ${SI_HOME}/lib
 # Registers com.sun.jndi.ldap.LdapCtxFactory with carbon-jndi
 SI_HOME=${SI_HOME} ./infra/ldap-ctx-bundle/build.sh
 
-# Restart SI (JDK 17+ needs the export for the factory bundle)
-JAVA_OPTS="--add-exports=java.naming/com.sun.jndi.ldap=ALL-UNNAMED" ${SI_HOME}/bin/server.sh
+# Restart SI (packs older than 4.4.1 on JDK 17+ also need
+# JAVA_OPTS="--add-exports=java.naming/com.sun.jndi.ldap=ALL-UNNAMED")
+${SI_HOME}/bin/server.sh
 
 ./run_all_tests.sh --with-oracle-ldap
 ```
