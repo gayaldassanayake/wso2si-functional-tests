@@ -8,6 +8,7 @@
 #   ./run_all_tests.sh --with-rabbitmq    # Core + RabbitMQ tests (TC45)
 #   ./run_all_tests.sh --with-redis       # Core + Redis tests (TC46)
 #   ./run_all_tests.sh --with-postgres    # Core + PostgreSQL CDC tests (TC48, TC49)
+#   ./run_all_tests.sh --with-oracle-ldap # Core + Oracle via LDAP naming (TC52)
 #   ./run_all_tests.sh --with-thrift      # Core + Thrift DataBridge tests (TC43)
 #   ./run_all_tests.sh --with-helm        # Core + Helm chart Gateway API tests (TC19-TC27)
 #   ./run_all_tests.sh --with-k8s         # Core + Kubernetes live Gateway API tests (TC28-TC34)
@@ -37,6 +38,7 @@ WITH_MYSQL=false
 WITH_RABBITMQ=false
 WITH_REDIS=false
 WITH_POSTGRES=false
+WITH_ORACLE_LDAP=false
 WITH_THRIFT=false
 WITH_HELM=false
 WITH_K8S=false
@@ -53,11 +55,12 @@ for arg in "$@"; do
         --with-rabbitmq)  WITH_RABBITMQ=true ;;
         --with-redis)     WITH_REDIS=true ;;
         --with-postgres)  WITH_POSTGRES=true ;;
+        --with-oracle-ldap) WITH_ORACLE_LDAP=true ;;
         --with-thrift)    WITH_THRIFT=true ;;
         --with-helm)      WITH_HELM=true ;;
         --with-k8s)       WITH_K8S=true ;;
         --with-tools)     WITH_TOOLS=true ;;
-        --all)            WITH_KAFKA=true; WITH_MYSQL=true; WITH_RABBITMQ=true; WITH_REDIS=true; WITH_THRIFT=true; WITH_HELM=true; WITH_K8S=true; WITH_TOOLS=true; WITH_POSTGRES=true ;;
+        --all)            WITH_KAFKA=true; WITH_MYSQL=true; WITH_RABBITMQ=true; WITH_REDIS=true; WITH_THRIFT=true; WITH_HELM=true; WITH_K8S=true; WITH_TOOLS=true; WITH_POSTGRES=true; WITH_ORACLE_LDAP=true ;;
         --skip-helm)      SKIP_HELM=true ;;
         --skip-k8s)       SKIP_K8S=true ;;
         --skip-deploy)    SKIP_DEPLOY=true ;;
@@ -295,6 +298,7 @@ tc_script() {
         TC47) echo "test_tc47_xml_emit.sh" ;;
         TC50) echo "test_tc50_javascript_function.sh" ;;
         TC51) echo "test_tc51_javascript_eval.sh" ;;
+        TC52) echo "test_tc52_oracle_ldap_store.sh" ;;
         *) echo "" ;;
     esac
 }
@@ -350,6 +354,7 @@ tc_label() {
         TC47) echo "XML emit via HTTP sink — self-loop round-trip with ifThenElse classification" ;;
         TC50) echo "JavaScript script function — named function transformation" ;;
         TC51) echo "JavaScript js:eval — dynamic arithmetic and boolean expressions" ;;
+        TC52) echo "Oracle RDBMS store via jdbc:oracle:thin:@ldap:// naming [requires Oracle + OpenLDAP]" ;;
         TC48) echo "PostgreSQL CDC listening mode — INSERT/UPDATE/DELETE via Debezium logical replication [requires PostgreSQL]" ;;
         TC49) echo "PostgreSQL CDC polling mode [requires PostgreSQL]" ;;
         *) echo "Unknown" ;;
@@ -365,6 +370,7 @@ MYSQL_TCS=(TC07 TC11 TC39)
 RABBITMQ_TCS=(TC45)
 REDIS_TCS=(TC46)
 POSTGRES_TCS=(TC48 TC49)
+ORACLE_LDAP_TCS=(TC52)
 THRIFT_TCS=(TC43)
 TOOLS_TCS=(TC36 TC37 TC38)  # TC35 is standalone — run before starting SI
 
@@ -392,6 +398,12 @@ else
 
     if [[ "$WITH_POSTGRES" == "true" ]]; then
         for tc in "${POSTGRES_TCS[@]}"; do
+            run_test "$tc" "$(tc_script "$tc")" "$(tc_label "$tc")"
+        done
+    fi
+
+    if [[ "$WITH_ORACLE_LDAP" == "true" ]]; then
+        for tc in "${ORACLE_LDAP_TCS[@]}"; do
             run_test "$tc" "$(tc_script "$tc")" "$(tc_label "$tc")"
         done
     fi

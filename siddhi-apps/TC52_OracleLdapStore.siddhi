@@ -1,0 +1,38 @@
+@App:name('TC52_OracleLdapStore')
+@App:description('RDBMS store on Oracle resolved through LDAP directory naming (BNYMDMAPROD-232)')
+
+/*
+Tests: jdbc:oracle:thin:@ldap:// URL. The Oracle driver resolves the service
+       name with a JNDI DirContext lookup, which goes through carbon-jndi's
+       WrapperContext inside SI. carbon-jndi < 1.0.7 fails with
+       "NotContextException: Not an instance of DirContext".
+Port : 8126
+Deps : Oracle + OpenLDAP (./scripts/setup.sh --oracle-ldap), ojdbc11 JAR in $SI_HOME/lib/
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8126/TC52_OracleLdapStore/OrderStream',
+        @map(type='json'))
+define stream OrderStream (orderId string, amount double);
+
+@sink(type='log', prefix='[TC52]')
+define stream OrderLogStream (orderId string, amount double);
+
+@store(type='rdbms',
+       jdbc.url='jdbc:oracle:thin:@ldap://localhost:3389/FREEPDB1,cn=OracleContext,dc=example,dc=com',
+       username='sitest',
+       password='sitest123',
+       jdbc.driver.name='oracle.jdbc.OracleDriver',
+       table.name='TC52_ORDERS')
+@PrimaryKey('orderId')
+define table OrderTable (orderId string, amount double);
+
+@info(name='log-events')
+from OrderStream
+select orderId, amount
+insert into OrderLogStream;
+
+@info(name='to-oracle')
+from OrderStream
+select orderId, amount
+insert into OrderTable;

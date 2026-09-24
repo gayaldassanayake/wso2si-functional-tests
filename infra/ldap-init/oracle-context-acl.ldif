@@ -1,0 +1,4 @@
+dn: olcDatabase={1}mdb,cn=config
+changetype: modify
+add: olcAccess
+olcAccess: {2}to dn.subtree="cn=OracleContext,dc=example,dc=com" by * read

@@ -6,6 +6,7 @@
 #   ./scripts/setup.sh --mysql          # Start MySQL only
 #   ./scripts/setup.sh --rabbitmq       # Start RabbitMQ only
 #   ./scripts/setup.sh --redis          # Start Redis only
+#   ./scripts/setup.sh --oracle-ldap    # Start Oracle + OpenLDAP (TC52, not part of --all)
 #   ./scripts/setup.sh --all            # Start all services
 
 set -euo pipefail
@@ -21,6 +22,7 @@ WITH_MYSQL=false
 WITH_RABBITMQ=false
 WITH_REDIS=false
 WITH_POSTGRES=false
+WITH_ORACLE_LDAP=false
 
 for arg in "$@"; do
     case "$arg" in
@@ -29,15 +31,16 @@ for arg in "$@"; do
         --rabbitmq) WITH_RABBITMQ=true ;;
         --redis)    WITH_REDIS=true ;;
         --postgres) WITH_POSTGRES=true ;;
+        --oracle-ldap) WITH_ORACLE_LDAP=true ;;
         --all)      WITH_KAFKA=true; WITH_MYSQL=true; WITH_RABBITMQ=true; WITH_REDIS=true; WITH_POSTGRES=true ;;
         *)
-            echo "Usage: $0 [--kafka] [--mysql] [--rabbitmq] [--redis] [--postgres] [--all]"
+            echo "Usage: $0 [--kafka] [--mysql] [--rabbitmq] [--redis] [--postgres] [--oracle-ldap] [--all]"
             exit 1
             ;;
     esac
 done
 
-if [[ "$WITH_KAFKA" == "false" && "$WITH_MYSQL" == "false" && "$WITH_RABBITMQ" == "false" && "$WITH_REDIS" == "false" && "$WITH_POSTGRES" == "false" ]]; then
+if [[ "$WITH_KAFKA" == "false" && "$WITH_MYSQL" == "false" && "$WITH_RABBITMQ" == "false" && "$WITH_REDIS" == "false" && "$WITH_POSTGRES" == "false" && "$WITH_ORACLE_LDAP" == "false" ]]; then
     echo "Specify at least one service: --kafka, --mysql, --rabbitmq, --redis, --postgres, or --all"
     exit 1
 fi
@@ -65,9 +68,12 @@ fi
 if [[ "$WITH_POSTGRES" == "true" ]]; then
     SERVICES+=("postgres")
 fi
+if [[ "$WITH_ORACLE_LDAP" == "true" ]]; then
+    SERVICES+=("oracle" "openldap")
+fi
 
 echo "Starting services: ${SERVICES[*]}"
-docker compose -f "${COMPOSE_FILE}" up -d --force-recreate "${SERVICES[@]}"
+docker compose -f "${COMPOSE_FILE}" --profile oracle up -d --force-recreate "${SERVICES[@]}"
 
 # ─── Wait for healthy ────────────────────────────────────────────────────────
 wait_healthy() {
@@ -107,6 +113,17 @@ if [[ "$WITH_REDIS" == "true" ]]; then
 fi
 if [[ "$WITH_POSTGRES" == "true" ]]; then
     wait_healthy "si-test-postgres"
+fi
+if [[ "$WITH_ORACLE_LDAP" == "true" ]]; then
+    wait_healthy "${ORACLE_CONTAINER}"
+    echo -n "  Waiting for ${LDAP_CONTAINER} to accept connections..."
+    until docker exec "${LDAP_CONTAINER}" ldapsearch -Q -Y EXTERNAL -H ldapi:/// -b cn=config -s base dn &>/dev/null; do
+        echo -n "."; sleep 2
+    done
+    echo " OK"
+    # The Oracle driver reads net-service entries anonymously, like a typical OID setup.
+    docker exec -i "${LDAP_CONTAINER}" ldapmodify -Q -Y EXTERNAL -H ldapi:/// \
+        < "${SUITE_ROOT}/infra/ldap-init/oracle-context-acl.ldif" || true
 fi
 
 # ─── Kafka post-setup ────────────────────────────────────────────────────────

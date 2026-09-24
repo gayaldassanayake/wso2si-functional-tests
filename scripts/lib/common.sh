@@ -669,3 +669,30 @@ pgjdbc_has_automatic_flush() {
         | LC_ALL=C grep -aq 'withAutomaticFlush'
 }
 
+# ─── Oracle + LDAP helpers (TC52) ────────────────────────────────────────────
+require_oracle_ldap_running() {
+    require_docker_container "${ORACLE_CONTAINER}"
+    require_docker_container "${LDAP_CONTAINER}"
+}
+
+oracle_query() {
+    local sql="$1"
+    printf 'SET HEADING OFF FEEDBACK OFF PAGESIZE 0\n%s\nEXIT\n' "${sql}" \
+        | docker exec -i "${ORACLE_CONTAINER}" \
+            sqlplus -s "${ORACLE_USER}/${ORACLE_PASS}@localhost:1521/${ORACLE_SERVICE}" 2>/dev/null
+}
+
+assert_oracle_count() {
+    local description="$1"
+    local table="$2"
+    local expected="$3"
+    local actual
+    actual=$(oracle_query "SELECT COUNT(*) FROM ${table};" | tr -d '[:space:]')
+    if [[ "${actual}" == "${expected}" ]]; then
+        log_pass "${description} (Oracle ${table} count = ${actual})"
+        return 0
+    else
+        log_fail "${description}: expected ${expected} rows in ${table}, got '${actual}'"
+        return 1
+    fi
+}

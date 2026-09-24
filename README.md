@@ -7,6 +7,7 @@ A self-contained regression test suite for WSO2 Streaming Integrator (SI) 4.3.x 
 - **7 Kubernetes live tests** (TC28–TC34) — end-to-end validation of the Gateway API resources on a live cluster using Envoy Gateway.
 - **4 distribution tool tests** (TC35–TC38) — server lifecycle, `jartobundle.sh`, `osgi-lib.sh`, `ciphertool.sh`.
 - **2 PostgreSQL CDC tests** (TC48, TC49) — listening mode via Debezium logical replication, and polling mode.
+- **1 Oracle LDAP naming test** (TC52) — RDBMS store on Oracle reached through a `jdbc:oracle:thin:@ldap://` URL.
 - **1 CDC listening test** (TC39) — MySQL CDC via Debezium binlog (INSERT/UPDATE/DELETE events).
 - **3 optional extension tests** (TC43, TC45, TC46) — Thrift DataBridge, RabbitMQ pass-through, Redis store. Each self-skips when the required SI extension JARs are absent.
 
@@ -291,6 +292,7 @@ TC08 uses Kafka (no HTTP port). TC11 uses CDC source. TC12 uses file source. TC3
 | TC47 | 8122 | + echo port 8123 (XML self-loop receiver) |
 | TC50 | 8124 | JavaScript script function |
 | TC51 | 8125 | JavaScript `js:eval` |
+| TC52 | 8126 | Oracle store via LDAP naming |
 
 ---
 
@@ -383,6 +385,18 @@ TC48 covers the gap flagged in [siddhi-io-cdc PR #101](https://github.com/siddhi
 
 The test database also needs `wal_level=logical` and `REPLICA IDENTITY FULL` on the captured table — the latter is what makes `before_*` fields populated on UPDATE/DELETE. Both are set by the Compose service and `infra/postgres-init/01_init.sql`.
 
+### Oracle LDAP Naming Test (TC52)
+
+Covers BNYMDMAPROD-232. The Oracle thin driver resolves `jdbc:oracle:thin:@ldap://host:port/SERVICE,cn=OracleContext,...` with a JNDI `DirContext` lookup. Inside SI every JNDI call goes through carbon-jndi, whose `WrapperContext` only implements `DirContext` from 1.0.7 onwards; older versions make the store fail to connect.
+
+| TC | Script | Feature Area | External Deps |
+|---|---|---|---|
+| TC52 | `test_tc52_oracle_ldap_store.sh` | `@store(type='rdbms')` on Oracle via LDAP directory naming | Oracle + OpenLDAP, ojdbc11 bundle, LDAP factory bundle |
+
+Compose seeds OpenLDAP with a minimal Oracle Net schema (`infra/ldap-init/`) and a `FREEPDB1` net-service entry pointing at the Oracle container.
+
+carbon-jndi only hands out JNDI factories registered as OSGi services, so the JDK's `com.sun.jndi.ldap.LdapCtxFactory` must be registered by a bundle. `infra/ldap-ctx-bundle/` builds a minimal one, equivalent to the provider bundle customers deploy for Oracle LDAP naming. On JDK 17+ the JVM must also be started with `--add-exports=java.naming/com.sun.jndi.ldap=ALL-UNNAMED`, otherwise that bundle cannot instantiate the factory.
+
 ### Core SI Runtime Tests (TC40–TC42, TC44, TC47, TC50–TC51)
 
 These run alongside TC01–TC18 as part of the standard core test run.
@@ -457,6 +471,26 @@ Adds TC48 (CDC listening) and TC49 (CDC polling):
 cp postgresql-42.7.13.jar ${SI_HOME}/lib/
 
 ./run_all_tests.sh --with-postgres
+```
+
+### With Oracle via LDAP naming
+
+Adds TC52. The Oracle image is large, so these services sit behind the `oracle` Compose profile and are not part of `--all`:
+
+```bash
+./scripts/setup.sh --oracle-ldap
+
+# Oracle JDBC driver, converted to an OSGi bundle
+curl -O https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc11/23.26.3.0.0/ojdbc11-23.26.3.0.0.jar
+${SI_HOME}/bin/jartobundle.sh ojdbc11-23.26.3.0.0.jar ${SI_HOME}/lib
+
+# Registers com.sun.jndi.ldap.LdapCtxFactory with carbon-jndi
+SI_HOME=${SI_HOME} ./infra/ldap-ctx-bundle/build.sh
+
+# Restart SI (JDK 17+ needs the export for the factory bundle)
+JAVA_OPTS="--add-exports=java.naming/com.sun.jndi.ldap=ALL-UNNAMED" ${SI_HOME}/bin/server.sh
+
+./run_all_tests.sh --with-oracle-ldap
 ```
 
 ### With Kafka

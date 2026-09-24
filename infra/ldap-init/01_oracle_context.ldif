@@ -1,0 +1,8 @@
+dn: cn=OracleContext,dc=example,dc=com
+objectClass: orclContext
+cn: OracleContext
+
+dn: cn=FREEPDB1,cn=OracleContext,dc=example,dc=com
+objectClass: orclNetService
+cn: FREEPDB1
+orclNetDescString: (DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=localhost)(PORT=1522))(CONNECT_DATA=(SERVICE_NAME=FREEPDB1)))
