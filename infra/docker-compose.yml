@@ -101,6 +101,30 @@ services:
       retries: 10
       start_period: 5s
 
+  postgres:
+    image: postgres:16
+    container_name: si-test-postgres
+    environment:
+      POSTGRES_DB: si_test_db
+      POSTGRES_USER: sitest
+      POSTGRES_PASSWORD: sitest123
+    ports:
+      - "5433:5432"
+    # Debezium streams from the logical WAL; the stock config ships wal_level=replica
+    command: >
+      postgres
+      -c wal_level=logical
+      -c max_replication_slots=8
+      -c max_wal_senders=8
+    volumes:
+      - ./postgres-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sitest -d si_test_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
 networks:
   default:
     ipam:

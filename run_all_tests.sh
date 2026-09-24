@@ -7,6 +7,7 @@
 #   ./run_all_tests.sh --with-mysql       # Core + MySQL tests (TC07, TC11)
 #   ./run_all_tests.sh --with-rabbitmq    # Core + RabbitMQ tests (TC45)
 #   ./run_all_tests.sh --with-redis       # Core + Redis tests (TC46)
+#   ./run_all_tests.sh --with-postgres    # Core + PostgreSQL CDC tests (TC48, TC49)
 #   ./run_all_tests.sh --with-thrift      # Core + Thrift DataBridge tests (TC43)
 #   ./run_all_tests.sh --with-helm        # Core + Helm chart Gateway API tests (TC19-TC27)
 #   ./run_all_tests.sh --with-k8s         # Core + Kubernetes live Gateway API tests (TC28-TC34)
@@ -35,6 +36,7 @@ WITH_KAFKA=false
 WITH_MYSQL=false
 WITH_RABBITMQ=false
 WITH_REDIS=false
+WITH_POSTGRES=false
 WITH_THRIFT=false
 WITH_HELM=false
 WITH_K8S=false
@@ -50,11 +52,12 @@ for arg in "$@"; do
         --with-mysql)     WITH_MYSQL=true ;;
         --with-rabbitmq)  WITH_RABBITMQ=true ;;
         --with-redis)     WITH_REDIS=true ;;
+        --with-postgres)  WITH_POSTGRES=true ;;
         --with-thrift)    WITH_THRIFT=true ;;
         --with-helm)      WITH_HELM=true ;;
         --with-k8s)       WITH_K8S=true ;;
         --with-tools)     WITH_TOOLS=true ;;
-        --all)            WITH_KAFKA=true; WITH_MYSQL=true; WITH_RABBITMQ=true; WITH_REDIS=true; WITH_THRIFT=true; WITH_HELM=true; WITH_K8S=true; WITH_TOOLS=true ;;
+        --all)            WITH_KAFKA=true; WITH_MYSQL=true; WITH_RABBITMQ=true; WITH_REDIS=true; WITH_THRIFT=true; WITH_HELM=true; WITH_K8S=true; WITH_TOOLS=true; WITH_POSTGRES=true ;;
         --skip-helm)      SKIP_HELM=true ;;
         --skip-k8s)       SKIP_K8S=true ;;
         --skip-deploy)    SKIP_DEPLOY=true ;;
@@ -122,6 +125,10 @@ _has_kafka_jars() {
     ls "${SI_HOME}/lib/"*kafka_2.*.jar      2>/dev/null | grep -q .
 }
 
+_has_pg_jdbc() {
+    ls "${SI_HOME}/lib/postgresql-"*.jar 2>/dev/null | grep -q .
+}
+
 _has_rabbitmq_jars() {
     ls "${SI_HOME}/lib/"*rabbitmq*.jar          2>/dev/null | grep -q . ||
     ls "${SI_HOME}/wso2/lib/plugins/"*rabbitmq*.jar 2>/dev/null | grep -q .
@@ -158,6 +165,16 @@ if [[ "$SKIP_DEPLOY" == "false" && ${#SPECIFIC_TCS[@]} -eq 0 ]]; then
             echo -e "${YELLOW}[WARN]${NC} MySQL JDBC driver not found in ${SI_HOME}/lib/ — skipping TC07/TC11 deployment."
             echo "       Download mysql-connector-j-*.jar and place it in \${SI_HOME}/lib/, then restart SI."
             WITH_MYSQL=false
+        fi
+    fi
+
+    if [[ "$WITH_POSTGRES" == "true" ]]; then
+        if _has_pg_jdbc; then
+            bash "${SCRIPT_DIR}/scripts/deploy.sh" --postgres
+        else
+            echo -e "${YELLOW}[WARN]${NC} PostgreSQL JDBC driver not found in ${SI_HOME}/lib/ — skipping TC48/TC49 deployment."
+            echo "       Download postgresql-${PGJDBC_MIN_VERSION}.jar (or newer) into \${SI_HOME}/lib/, then restart SI."
+            WITH_POSTGRES=false
         fi
     fi
 
@@ -266,6 +283,8 @@ tc_script() {
         TC37) echo "test_tc37_osgi_lib.sh" ;;
         TC38) echo "test_tc38_ciphertool.sh" ;;
         TC39) echo "test_tc39_cdc_listening.sh" ;;
+        TC48) echo "test_tc48_pg_cdc_listening.sh" ;;
+        TC49) echo "test_tc49_pg_cdc_polling.sh" ;;
         TC40) echo "test_tc40_file_sink.sh" ;;
         TC41) echo "test_tc41_grpc_echo.sh" ;;
         TC42) echo "test_tc42_grpc_consume.sh" ;;
@@ -327,6 +346,8 @@ tc_label() {
         TC45) echo "RabbitMQ pass-through — source + filter + sink [requires RabbitMQ]" ;;
         TC46) echo "Redis store — @store(type=redis) PK upsert + Store API [requires Redis]" ;;
         TC47) echo "XML emit via HTTP sink — self-loop round-trip with ifThenElse classification" ;;
+        TC48) echo "PostgreSQL CDC listening mode — INSERT/UPDATE/DELETE via Debezium logical replication [requires PostgreSQL]" ;;
+        TC49) echo "PostgreSQL CDC polling mode [requires PostgreSQL]" ;;
         *) echo "Unknown" ;;
     esac
 }
@@ -339,6 +360,7 @@ KAFKA_TCS=(TC08)
 MYSQL_TCS=(TC07 TC11 TC39)
 RABBITMQ_TCS=(TC45)
 REDIS_TCS=(TC46)
+POSTGRES_TCS=(TC48 TC49)
 THRIFT_TCS=(TC43)
 TOOLS_TCS=(TC36 TC37 TC38)  # TC35 is standalone — run before starting SI
 
@@ -360,6 +382,12 @@ else
 
     if [[ "$WITH_MYSQL" == "true" ]]; then
         for tc in "${MYSQL_TCS[@]}"; do
+            run_test "$tc" "$(tc_script "$tc")" "$(tc_label "$tc")"
+        done
+    fi
+
+    if [[ "$WITH_POSTGRES" == "true" ]]; then
+        for tc in "${POSTGRES_TCS[@]}"; do
             run_test "$tc" "$(tc_script "$tc")" "$(tc_label "$tc")"
         done
     fi

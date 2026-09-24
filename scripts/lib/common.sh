@@ -605,3 +605,67 @@ assert_mysql_count() {
         return 1
     fi
 }
+
+# ─── PostgreSQL helpers (TC48, TC49) ─────────────────────────────────────────
+require_postgres_running() {
+    require_docker_container "${POSTGRES_CONTAINER}"
+}
+
+postgres_query() {
+    local sql="$1"
+    docker exec "${POSTGRES_CONTAINER}" \
+        psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -tA -c "${sql}" 2>/dev/null
+}
+
+assert_postgres_count() {
+    local description="$1"
+    local table="$2"
+    local expected="$3"
+    local actual
+    actual=$(postgres_query "SELECT COUNT(*) FROM ${table};" | tr -d '[:space:]')
+    if [[ "${actual}" == "${expected}" ]]; then
+        log_pass "${description} (Postgres ${table} count = ${actual})"
+        return 0
+    else
+        log_fail "${description}: expected ${expected} rows in ${table}, got '${actual}'"
+        return 1
+    fi
+}
+
+# Drop the Debezium replication slot so repeated runs do not exhaust
+# max_replication_slots. Inactive slots also pin WAL segments on disk.
+drop_pg_replication_slots() {
+    local slots=""
+    slots=$(postgres_query "SELECT slot_name FROM pg_replication_slots WHERE plugin='pgoutput';") || true
+    local s
+    for s in ${slots}; do
+        postgres_query "SELECT pg_drop_replication_slot('${s}');" >/dev/null 2>&1 || true
+    done
+}
+
+# common.sh runs under `set -e`, so these helpers must never return non-zero:
+# a bare failing assignment in a test would kill the script with no output.
+pgjdbc_jar() {
+    local j=""
+    j=$(ls "${SI_HOME}/lib/postgresql-"*.jar 2>/dev/null | head -1) || true
+    printf '%s' "${j}"
+}
+
+pgjdbc_version() {
+    local jar="$1"
+    local v=""
+    v=$(unzip -p "${jar}" META-INF/MANIFEST.MF 2>/dev/null \
+        | tr -d '\r' | awk -F': ' '/^Implementation-Version:/{print $2; exit}') || true
+    printf '%s' "${v}"
+}
+
+# The capability the driver must have, tested directly rather than by version
+# string: Debezium 3.6.1 calls ChainedCommonStreamBuilder.withAutomaticFlush(boolean),
+# absent before pgjdbc 42.7.11. A version string can lie (repackaged or vendor
+# builds); the method either is in the jar or is not.
+pgjdbc_has_automatic_flush() {
+    local jar="$1"
+    unzip -p "${jar}" org/postgresql/replication/fluent/ChainedCommonStreamBuilder.class 2>/dev/null \
+        | LC_ALL=C grep -aq 'withAutomaticFlush'
+}
+

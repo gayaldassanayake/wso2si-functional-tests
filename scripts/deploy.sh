@@ -7,6 +7,7 @@
 #   ./scripts/deploy.sh --mysql             # Add TC07, TC11
 #   ./scripts/deploy.sh --rabbitmq          # Add TC45
 #   ./scripts/deploy.sh --redis             # Add TC46
+#   ./scripts/deploy.sh --postgres          # Add TC49 (TC48 apps are deployed by its own script)
 #   ./scripts/deploy.sh --thrift            # Add TC43
 #   ./scripts/deploy.sh --all               # All test cases
 #   ./scripts/deploy.sh TC01 TC04 TC06      # Deploy specific apps by number
@@ -50,6 +51,7 @@ MYSQL_APPS=(TC07_MySQLPersist.siddhi TC11_CDCPolling.siddhi)
 # that occur when multiple connectors share the same MySQL URL.
 RABBITMQ_APPS=(TC45_RabbitMQPassThrough.siddhi)
 REDIS_APPS=(TC46_RedisStore.siddhi)
+POSTGRES_APPS=(TC49_CDCPgPolling.siddhi)
 THRIFT_APPS=(TC43_ThriftReceiver.siddhi TC43_ThriftSenderTCP.siddhi)
 FILE_APPS=(TC12_FileSource.siddhi)
 
@@ -57,7 +59,7 @@ TO_DEPLOY=()
 INCLUDE_FILE=false
 
 if [[ $# -eq 0 ]]; then
-    echo "Usage: $0 [--core | --kafka | --mysql | --all | TC01 TC02 ...]"
+    echo "Usage: $0 [--core | --kafka | --mysql | --postgres | --all | TC01 TC02 ...]"
     exit 1
 fi
 
@@ -76,6 +78,9 @@ for arg in "$@"; do
         --rabbitmq)
             TO_DEPLOY+=("${RABBITMQ_APPS[@]}")
             ;;
+        --postgres)
+            TO_DEPLOY+=("${POSTGRES_APPS[@]}")
+            ;;
         --redis)
             TO_DEPLOY+=("${REDIS_APPS[@]}")
             ;;
@@ -87,7 +92,7 @@ for arg in "$@"; do
             TO_DEPLOY+=(TC12_FileSource.siddhi)
             ;;
         --all)
-            TO_DEPLOY+=("${CORE_APPS[@]}" "${KAFKA_APPS[@]}" "${MYSQL_APPS[@]}" "${RABBITMQ_APPS[@]}" "${REDIS_APPS[@]}" "${THRIFT_APPS[@]}")
+            TO_DEPLOY+=("${CORE_APPS[@]}" "${KAFKA_APPS[@]}" "${MYSQL_APPS[@]}" "${RABBITMQ_APPS[@]}" "${REDIS_APPS[@]}" "${THRIFT_APPS[@]}" "${POSTGRES_APPS[@]}")
             INCLUDE_FILE=true
             ;;
         TC*)

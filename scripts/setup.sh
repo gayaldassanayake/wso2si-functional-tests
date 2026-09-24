@@ -20,6 +20,7 @@ WITH_KAFKA=false
 WITH_MYSQL=false
 WITH_RABBITMQ=false
 WITH_REDIS=false
+WITH_POSTGRES=false
 
 for arg in "$@"; do
     case "$arg" in
@@ -27,16 +28,17 @@ for arg in "$@"; do
         --mysql)    WITH_MYSQL=true ;;
         --rabbitmq) WITH_RABBITMQ=true ;;
         --redis)    WITH_REDIS=true ;;
-        --all)      WITH_KAFKA=true; WITH_MYSQL=true; WITH_RABBITMQ=true; WITH_REDIS=true ;;
+        --postgres) WITH_POSTGRES=true ;;
+        --all)      WITH_KAFKA=true; WITH_MYSQL=true; WITH_RABBITMQ=true; WITH_REDIS=true; WITH_POSTGRES=true ;;
         *)
-            echo "Usage: $0 [--kafka] [--mysql] [--rabbitmq] [--redis] [--all]"
+            echo "Usage: $0 [--kafka] [--mysql] [--rabbitmq] [--redis] [--postgres] [--all]"
             exit 1
             ;;
     esac
 done
 
-if [[ "$WITH_KAFKA" == "false" && "$WITH_MYSQL" == "false" && "$WITH_RABBITMQ" == "false" && "$WITH_REDIS" == "false" ]]; then
-    echo "Specify at least one service: --kafka, --mysql, --rabbitmq, --redis, or --all"
+if [[ "$WITH_KAFKA" == "false" && "$WITH_MYSQL" == "false" && "$WITH_RABBITMQ" == "false" && "$WITH_REDIS" == "false" && "$WITH_POSTGRES" == "false" ]]; then
+    echo "Specify at least one service: --kafka, --mysql, --rabbitmq, --redis, --postgres, or --all"
     exit 1
 fi
 
@@ -59,6 +61,9 @@ if [[ "$WITH_RABBITMQ" == "true" ]]; then
 fi
 if [[ "$WITH_REDIS" == "true" ]]; then
     SERVICES+=("redis")
+fi
+if [[ "$WITH_POSTGRES" == "true" ]]; then
+    SERVICES+=("postgres")
 fi
 
 echo "Starting services: ${SERVICES[*]}"
@@ -99,6 +104,9 @@ if [[ "$WITH_RABBITMQ" == "true" ]]; then
 fi
 if [[ "$WITH_REDIS" == "true" ]]; then
     wait_healthy "si-test-redis"
+fi
+if [[ "$WITH_POSTGRES" == "true" ]]; then
+    wait_healthy "si-test-postgres"
 fi
 
 # ─── Kafka post-setup ────────────────────────────────────────────────────────
@@ -143,6 +151,43 @@ if [[ "$WITH_MYSQL" == "true" ]]; then
             echo "  [WARN] MySQL JDBC driver JAR not found in ${SI_HOME}/lib/"
             echo "  TC07 and TC11 will fail without it."
             echo "  Download mysql-connector-j-8.x.x.jar and place it in:"
+            echo "    ${SI_HOME}/lib/"
+            echo "  Then restart the SI server."
+        fi
+    fi
+fi
+
+# ─── PostgreSQL post-setup ───────────────────────────────────────────────────
+if [[ "$WITH_POSTGRES" == "true" ]]; then
+    echo "Verifying PostgreSQL database..."
+    docker exec "${POSTGRES_CONTAINER}" \
+        psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -tAc "SELECT 1;" 2>/dev/null | grep -q 1 \
+        && echo "  Database '${POSTGRES_DB}': OK" \
+        || echo "[WARN] Could not verify PostgreSQL database"
+
+    wal=$(docker exec "${POSTGRES_CONTAINER}" \
+        psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -tAc "SHOW wal_level;" 2>/dev/null | tr -d '[:space:]')
+    if [[ "${wal}" == "logical" ]]; then
+        echo "  wal_level: logical (CDC listening supported)"
+    else
+        echo "  [WARN] wal_level is '${wal}', expected 'logical'. TC48 cannot stream."
+    fi
+
+    if [[ -d "${SI_HOME}/lib" ]]; then
+        pgjar=$(ls "${SI_HOME}/lib/postgresql-"*.jar 2>/dev/null | head -1)
+        if [[ -n "${pgjar}" ]]; then
+            pgver=$(unzip -p "${pgjar}" META-INF/MANIFEST.MF 2>/dev/null \
+                    | tr -d '\r' | awk -F': ' '/^Implementation-Version:/{print $2; exit}')
+            echo "  PostgreSQL JDBC driver: ${pgver:-unknown} found in \${SI_HOME}/lib/"
+            if ! unzip -p "${pgjar}" org/postgresql/replication/fluent/ChainedCommonStreamBuilder.class 2>/dev/null \
+                 | LC_ALL=C grep -aq 'withAutomaticFlush'; then
+                echo "  [WARN] pgjdbc ${pgver:-unknown} predates ${PGJDBC_MIN_VERSION}; TC48 (CDC listening) will fail."
+            fi
+        else
+            echo ""
+            echo "  [WARN] PostgreSQL JDBC driver JAR not found in ${SI_HOME}/lib/"
+            echo "  TC48 and TC49 will skip without it."
+            echo "  Download postgresql-${PGJDBC_MIN_VERSION}.jar (or newer) and place it in:"
             echo "    ${SI_HOME}/lib/"
             echo "  Then restart the SI server."
         fi

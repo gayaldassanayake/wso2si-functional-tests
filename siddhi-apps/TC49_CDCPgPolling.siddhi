@@ -1,0 +1,34 @@
+@App:name('TC49_CDCPgPolling')
+@App:description('PostgreSQL CDC polling mode: detect table changes via an incrementing row_version column')
+
+@source(type='cdc',
+        url='jdbc:postgresql://localhost:5433/si_test_db?stringtype=unspecified',
+        mode='polling',
+        jdbc.driver.name='org.postgresql.Driver',
+        polling.column='row_version',
+        polling.interval='2',
+        username='sitest',
+        password='sitest123',
+        table.name='cdc_test_table_pg',
+        @map(type='keyvalue'))
+define stream CDCPgPollingStream (item_id string, item_name string, quantity int, row_version long);
+
+@sink(type='log', prefix='[TC49-CDC]')
+define stream CDCPgLogStream (item_id string, item_name string, quantity int, row_version long);
+
+@PrimaryKey('item_id')
+define table CDCPgCapturedTable (item_id string, item_name string, quantity int, row_version long);
+
+@info(name='pg-cdc-to-log')
+from CDCPgPollingStream
+select item_id, item_name, quantity, row_version
+insert into CDCPgLogStream;
+
+@info(name='pg-cdc-to-table')
+from CDCPgPollingStream
+select item_id, item_name, quantity, row_version
+update or insert into CDCPgCapturedTable
+    set CDCPgCapturedTable.item_name = item_name,
+        CDCPgCapturedTable.quantity = quantity,
+        CDCPgCapturedTable.row_version = row_version
+    on CDCPgCapturedTable.item_id == item_id;

@@ -6,6 +6,7 @@ A self-contained regression test suite for WSO2 Streaming Integrator (SI) 4.3.x 
 - **9 Helm chart tests** (TC19–TC27) — template rendering and lint validation for the updated `helm-si` chart with Gateway API support. No cluster required.
 - **7 Kubernetes live tests** (TC28–TC34) — end-to-end validation of the Gateway API resources on a live cluster using Envoy Gateway.
 - **4 distribution tool tests** (TC35–TC38) — server lifecycle, `jartobundle.sh`, `osgi-lib.sh`, `ciphertool.sh`.
+- **2 PostgreSQL CDC tests** (TC48, TC49) — listening mode via Debezium logical replication, and polling mode.
 - **1 CDC listening test** (TC39) — MySQL CDC via Debezium binlog (INSERT/UPDATE/DELETE events).
 - **3 optional extension tests** (TC43, TC45, TC46) — Thrift DataBridge, RabbitMQ pass-through, Redis store. Each self-skips when the required SI extension JARs are absent.
 
@@ -100,9 +101,11 @@ wso2si-functional-tests/
 │   └── TC42_GrpcSender.siddhi
 │
 ├── infra/
-│   ├── docker-compose.yml            ← Kafka + Zookeeper + MySQL 8.0
-│   └── mysql-init/
-│       └── 01_init.sql
+│   ├── docker-compose.yml            ← Kafka + Zookeeper + MySQL 8.0 + PostgreSQL 16
+│   ├── mysql-init/
+│   │   └── 01_init.sql
+│   └── postgres-init/
+│       └── 01_init.sql               ← wal_level tables, REPLICA IDENTITY FULL, publication
 │
 └── scripts/
     ├── lib/
@@ -353,6 +356,31 @@ TC39 requires MySQL with Debezium-compatible binlog privileges (granted automati
 |---|---|---|---|
 | TC39 | `test_tc39_cdc_listening.sh` | CDC listening mode (Debezium binlog) INSERT/UPDATE/DELETE | MySQL |
 
+### PostgreSQL CDC Tests (TC48, TC49)
+
+TC48 covers the gap flagged in [siddhi-io-cdc PR #101](https://github.com/siddhi-io/siddhi-io-cdc/pull/101): Debezium 3.6.1 calls `ChainedCommonStreamBuilder.withAutomaticFlush(boolean)`, which pgjdbc only gained in **42.7.11**. The PostgreSQL driver is user-supplied, so an older one fails at streaming start with `NoSuchMethodError`.
+
+| TC | Script | Feature Area | External Deps |
+|---|---|---|---|
+| TC48 | `test_tc48_pg_cdc_listening.sh` | PostgreSQL CDC listening (Debezium logical replication) INSERT/UPDATE/DELETE | PostgreSQL, pgjdbc 42.7.11+ |
+| TC49 | `test_tc49_pg_cdc_polling.sh` | PostgreSQL CDC polling mode | PostgreSQL, pgjdbc |
+
+**Driver handling.** TC48 checks the jar for `withAutomaticFlush` directly rather than parsing its version string, because a repackaged or vendor jar can carry a misleading filename. Behaviour:
+
+- driver **absent** → both tests self-skip (the TC43/TC45/TC46 convention)
+- driver **present but too old** → TC48 **fails** with an explicit message naming the pgjdbc requirement, instead of surfacing a bare `NoSuchMethodError`
+- driver **present and new enough** → the tests run
+
+**Three PostgreSQL-specific settings the Siddhi apps must carry.** These are not needed for MySQL and are easy to miss:
+
+| Setting | Why |
+|---|---|
+| `connector.properties='plugin.name=pgoutput'` | siddhi-io-cdc defaults the logical decoding plugin to `decoderbufs`, a Debezium-specific Postgres extension absent from stock PostgreSQL images. Without this the connector dies with `could not access file "decoderbufs"`. `pgoutput` is built into PostgreSQL 10+. |
+| `table.name='public.<table>'` | For PostgreSQL, siddhi-io-cdc passes `table.name` straight into Debezium's `table.include.list`, which matches `schema.table`. A bare table name silently captures nothing. |
+| `?stringtype=unspecified` in the polling URL | The polling cursor is bound as a string. MySQL coerces it to a number implicitly; PostgreSQL is strictly typed and rejects `bigint > character varying`. This pgjdbc option sends the value as `unknown` so PostgreSQL infers the type. |
+
+The test database also needs `wal_level=logical` and `REPLICA IDENTITY FULL` on the captured table — the latter is what makes `before_*` fields populated on UPDATE/DELETE. Both are set by the Compose service and `infra/postgres-init/01_init.sql`.
+
 ### Core SI Runtime Tests (TC40–TC42, TC44, TC47)
 
 These run alongside TC01–TC18 as part of the standard core test run.
@@ -411,6 +439,20 @@ Adds TC07 (RDBMS store) and TC11 (CDC polling):
 
 # Then run
 ./run_all_tests.sh --with-mysql
+```
+
+### With PostgreSQL
+
+Adds TC48 (CDC listening) and TC49 (CDC polling):
+
+```bash
+# Start PostgreSQL first
+./scripts/setup.sh --postgres
+
+# Place pgjdbc 42.7.11+ in the SI lib directory, then restart SI
+cp postgresql-42.7.13.jar ${SI_HOME}/lib/
+
+./run_all_tests.sh --with-postgres
 ```
 
 ### With Kafka
@@ -562,6 +604,9 @@ You can also run a test script directly (apps must already be deployed):
 # Start MySQL only
 ./scripts/setup.sh --mysql
 
+# Start PostgreSQL only
+./scripts/setup.sh --postgres
+
 # Start everything
 ./scripts/setup.sh --all
 ```
@@ -592,6 +637,16 @@ TC07, TC11, and TC39 require the MySQL Connector/J JAR to be present in `${SI_HO
 `setup.sh --mysql` will warn you if the JAR is missing.
 
 TC39 additionally requires the `sitest` user to have `RELOAD`, `SHOW DATABASES`, `REPLICATION SLAVE`, and `REPLICATION CLIENT` MySQL privileges (needed by Debezium's snapshot phase). These are granted automatically by `infra/mysql-init/01_init.sql` when the Docker Compose MySQL container is first started.
+
+### PostgreSQL JDBC driver
+
+TC48 and TC49 require the PostgreSQL JDBC driver in `${SI_HOME}/lib/`. The SI distribution does not bundle it.
+
+1. Download `postgresql-42.7.11.jar` **or newer** from [Maven Central](https://repo1.maven.org/maven2/org/postgresql/postgresql/).
+2. Place it in `${SI_HOME}/lib/`.
+3. Restart the SI server.
+
+Versions below 42.7.11 will run TC49 (polling) but fail TC48 (listening): Debezium 3.6.1 needs `withAutomaticFlush`, added in 42.7.11. `setup.sh --postgres` warns when the driver is missing or too old.
 
 ### Kafka OSGi jars
 

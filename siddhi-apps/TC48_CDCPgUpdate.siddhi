@@ -1,0 +1,23 @@
+@App:name('TC48_CDCPgUpdate')
+@App:description('PostgreSQL CDC listening mode: Debezium logical replication UPDATE capture (one connector per app avoids JMX MBean conflict)')
+
+@source(type='cdc',
+        url='jdbc:postgresql://localhost:5433/si_test_db',
+        mode='listening',
+        jdbc.driver.name='org.postgresql.Driver',
+        username='sitest',
+        password='sitest123',
+        table.name='public.cdc_listen_table_pg',
+        connector.properties='plugin.name=pgoutput',
+        operation='update',
+        @map(type='keyvalue'))
+define stream CDCUpdateStream (order_id int, product string, quantity int, price double,
+                               before_order_id int, before_product string,
+                               before_quantity int, before_price double);
+
+@sink(type='log', prefix='[TC48-UPDATE]')
+define stream UpdateLogStream (order_id int, product string, quantity int, price double);
+
+from CDCUpdateStream
+select order_id, product, quantity, price
+insert into UpdateLogStream;
