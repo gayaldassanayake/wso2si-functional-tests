@@ -1,4 +1,5 @@
 version: '3.8'
+name: si-functional-tests
 
 # WSO2 SI Test Suite Infrastructure
 # Usage:
