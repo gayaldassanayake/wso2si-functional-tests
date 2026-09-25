@@ -1,0 +1,17 @@
+@App:name('TC57_CronTriggerB')
+@App:description('Cron trigger B: shares the trigger id T with the other TC57 app')
+
+/*
+Tests: cron triggers with the same id in two apps, Quartz scheduler shutdown when idle (BNYMDMAPROD-220).
+Port : none
+Deps : none
+*/
+
+define trigger T at '*/2 * * * * ?';
+
+@sink(type='log', prefix='[TC57-B]')
+define stream TickStream (triggered_time long);
+
+from T
+select triggered_time
+insert into TickStream;

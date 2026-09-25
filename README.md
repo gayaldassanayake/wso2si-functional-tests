@@ -2,7 +2,7 @@
 
 A self-contained regression test suite for WSO2 Streaming Integrator (SI) 4.3.x / 4.4.x. It covers:
 
-- **24 SI functional tests** (TC01–TC18, TC40–TC42, TC44, TC47, TC50–TC51) — Siddhi apps, Docker Compose infrastructure, HTTP event injection, log scanning, Store API queries, file sink, gRPC, HTTP request/response, XML emit, and JavaScript functions.
+- **25 SI functional tests** (TC01–TC18, TC40–TC42, TC44, TC47, TC50–TC51, TC57) — Siddhi apps, Docker Compose infrastructure, HTTP event injection, log scanning, Store API queries, file sink, gRPC, HTTP request/response, XML emit, JavaScript functions, and cron triggers.
 - **9 Helm chart tests** (TC19–TC27) — template rendering and lint validation for the updated `helm-si` chart with Gateway API support. No cluster required.
 - **7 Kubernetes live tests** (TC28–TC34) — end-to-end validation of the Gateway API resources on a live cluster using Envoy Gateway.
 - **5 distribution tool tests** (TC35–TC38, TC53) — server lifecycle, `jartobundle.sh`, `osgi-lib.sh`, `ciphertool.sh`, dependency version floors.
@@ -417,7 +417,7 @@ Checks: the consumer group `tc56-group` shows CLIENT-ID `tc56-cfgtest` (it shows
 SI_HOME=/path/to/wso2si-4.4.1 bash scripts/test_tc56_kafka_deployment_config.sh
 ```
 
-### Core SI Runtime Tests (TC40–TC42, TC44, TC47, TC50–TC51)
+### Core SI Runtime Tests (TC40–TC42, TC44, TC47, TC50–TC51, TC57)
 
 These run alongside TC01–TC18 as part of the standard core test run.
 
@@ -430,6 +430,7 @@ These run alongside TC01–TC18 as part of the standard core test run.
 | TC47 | `test_tc47_xml_emit.sh` | XML emit via HTTP sink, XPath ingest, `ifThenElse` classification, self-loop round-trip | None |
 | TC50 | `test_tc50_javascript_function.sh` | `script:javascript` named function with string transformation | `siddhi-script-js` |
 | TC51 | `test_tc51_javascript_eval.sh` | `js:eval` dynamic arithmetic and boolean expressions | `siddhi-script-js` |
+| TC57 | `test_tc57_cron_trigger_scheduler.sh` | Cron triggers with the same id in two apps; Quartz worker threads exit when no cron job is left (BNYMDMAPROD-220) | `jstack` on `PATH` |
 
 ### Optional Extension Tests (TC43, TC45, TC46)
 
@@ -600,7 +601,7 @@ TC39 requires MySQL with Debezium privileges. It is included in `--with-mysql` /
 ./run_all_tests.sh --with-mysql   # includes TC39 alongside TC07 and TC11
 ```
 
-TC40–TC42, TC44, TC47, TC50, and TC51 are included automatically in all standard runs alongside TC01–TC18.
+TC40–TC42, TC44, TC47, TC50, TC51, and TC57 are included automatically in all standard runs alongside TC01–TC18.
 
 ### Optional extension tests (TC43, TC45, TC46)
 
