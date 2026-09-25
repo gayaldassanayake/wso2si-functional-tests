@@ -46,15 +46,35 @@ assert_floor "T1: Netty" '^io\.netty\.(buffer|codec|codec-http|codec-http2|codec
 log_info "T2: Jackson core/databind/yaml at or above ${JACKSON_MIN_VERSION}"
 assert_floor "T2: Jackson" '^com\.fasterxml\.jackson\.(core\.jackson-core|core\.jackson-databind|dataformat\.jackson-dataformat-yaml)$' "${JACKSON_MIN_VERSION}"
 
-log_info "T3: no Netty or Jackson bundle installed at two versions"
-dups=$(bundles_matching '^(io\.netty\.|com\.fasterxml\.jackson\.)' | awk '{print $1}' | sort | uniq -d | tr '\n' ' ')
-if [[ -z "${dups}" ]]; then
-    log_pass "T3: no duplicate Netty/Jackson bundles"
+log_info "T3: apache-mime4j at or above ${MIME4J_MIN_VERSION}"
+assert_floor "T3: apache-mime4j" '^apache-mime4j-core$' "${MIME4J_MIN_VERSION}"
+
+log_info "T4: extension installer log4j jars exist and are at or above ${LOG4J_MIN_VERSION}"
+installer="${TOOLS_PACK_HOME}/wso2/tools/extension-installer"
+missing="" old=""
+for script in "${installer}/bin/extension-installer" "${installer}/bin/extension-installer.bat"; do
+    for jar in $(grep -oE 'log4j-[a-z0-9-]+-[0-9][0-9.]*\.jar' "${script}" | sort -u); do
+        [[ -f "${installer}/lib/${jar}" ]] || missing+=" $(basename "${script}"):${jar}"
+        v=$(echo "${jar}" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+        version_ge "${v}" "${LOG4J_MIN_VERSION}" || old+=" ${jar}"
+    done
+done
+if [[ -z "${missing}${old}" ]]; then
+    log_pass "T4: installer classpath log4j jars present and >= ${LOG4J_MIN_VERSION}"
 else
-    log_fail "T3: installed at more than one version: ${dups}"
+    [[ -n "${missing}" ]] && log_fail "T4: classpath jars not in lib/:${missing}"
+    [[ -n "${old}" ]] && log_fail "T4: below ${LOG4J_MIN_VERSION}:${old}"
 fi
 
-log_info "T4: every bundles.info entry points at an existing file"
+log_info "T5: no Netty or Jackson bundle installed at two versions"
+dups=$(bundles_matching '^(io\.netty\.|com\.fasterxml\.jackson\.)' | awk '{print $1}' | sort | uniq -d | tr '\n' ' ')
+if [[ -z "${dups}" ]]; then
+    log_pass "T5: no duplicate Netty/Jackson bundles"
+else
+    log_fail "T5: installed at more than one version: ${dups}"
+fi
+
+log_info "T6: every bundles.info entry points at an existing file"
 dangling=""
 server_dir="${TOOLS_PACK_HOME}/wso2/server"
 while IFS=, read -r name version path _; do
@@ -62,9 +82,9 @@ while IFS=, read -r name version path _; do
     [[ -e "${server_dir}/${path}" ]] || dangling+=" ${name}:${version}"
 done < "${BUNDLES_INFO}"
 if [[ -z "${dangling}" ]]; then
-    log_pass "T4: no dangling bundles.info entries"
+    log_pass "T6: no dangling bundles.info entries"
 else
-    log_fail "T4: entries without a jar:${dangling}"
+    log_fail "T6: entries without a jar:${dangling}"
 fi
 
 print_summary; tc_exit_code
