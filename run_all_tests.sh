@@ -7,6 +7,7 @@
 #   ./run_all_tests.sh --with-mysql       # Core + MySQL tests (TC07, TC11)
 #   ./run_all_tests.sh --with-rabbitmq    # Core + RabbitMQ tests (TC45)
 #   ./run_all_tests.sh --with-redis       # Core + Redis tests (TC46)
+#   ./run_all_tests.sh --with-mongodb     # Core + MongoDB store/CDC tests (TC54, TC55)
 #   ./run_all_tests.sh --with-postgres    # Core + PostgreSQL CDC tests (TC48, TC49)
 #   ./run_all_tests.sh --with-oracle-ldap # Core + Oracle via LDAP naming (TC52)
 #   ./run_all_tests.sh --with-thrift      # Core + Thrift DataBridge tests (TC43)
@@ -37,6 +38,7 @@ WITH_KAFKA=false
 WITH_MYSQL=false
 WITH_RABBITMQ=false
 WITH_REDIS=false
+WITH_MONGODB=false
 WITH_POSTGRES=false
 WITH_ORACLE_LDAP=false
 WITH_THRIFT=false
@@ -54,13 +56,14 @@ for arg in "$@"; do
         --with-mysql)     WITH_MYSQL=true ;;
         --with-rabbitmq)  WITH_RABBITMQ=true ;;
         --with-redis)     WITH_REDIS=true ;;
+        --with-mongodb)   WITH_MONGODB=true ;;
         --with-postgres)  WITH_POSTGRES=true ;;
         --with-oracle-ldap) WITH_ORACLE_LDAP=true ;;
         --with-thrift)    WITH_THRIFT=true ;;
         --with-helm)      WITH_HELM=true ;;
         --with-k8s)       WITH_K8S=true ;;
         --with-tools)     WITH_TOOLS=true ;;
-        --all)            WITH_KAFKA=true; WITH_MYSQL=true; WITH_RABBITMQ=true; WITH_REDIS=true; WITH_THRIFT=true; WITH_HELM=true; WITH_K8S=true; WITH_TOOLS=true; WITH_POSTGRES=true; WITH_ORACLE_LDAP=true ;;
+        --all)            WITH_KAFKA=true; WITH_MYSQL=true; WITH_RABBITMQ=true; WITH_REDIS=true; WITH_MONGODB=true; WITH_THRIFT=true; WITH_HELM=true; WITH_K8S=true; WITH_TOOLS=true; WITH_POSTGRES=true; WITH_ORACLE_LDAP=true ;;
         --skip-helm)      SKIP_HELM=true ;;
         --skip-k8s)       SKIP_K8S=true ;;
         --skip-deploy)    SKIP_DEPLOY=true ;;
@@ -142,6 +145,15 @@ _has_redis_extension() {
     ls "${SI_HOME}/lib/"*siddhi-store-redis*.jar              2>/dev/null | grep -q .
 }
 
+_has_mongodb_installer_artifacts() {
+    ls "${SI_HOME}/lib/"siddhi-store-mongodb-*.jar 2>/dev/null | grep -q . &&
+    ls "${SI_HOME}/lib/"siddhi-io-cdc-2.2.0.jar 2>/dev/null | grep -q . &&
+    ls "${SI_HOME}/lib/"mongodb_driver_sync_5.11.1_*.jar 2>/dev/null | grep -q . &&
+    ls "${SI_HOME}/lib/"mongodb_driver_core_5.11.1_*.jar 2>/dev/null | grep -q . &&
+    ls "${SI_HOME}/lib/"bson_5.11.1_*.jar 2>/dev/null | grep -q . &&
+    ls "${SI_HOME}/lib/"bson_record_codec_5.11.1_*.jar 2>/dev/null | grep -q .
+}
+
 _has_wso2event_jars() {
     ls "${SI_HOME}/wso2/lib/plugins/"*siddhi-io-wso2event*.jar 2>/dev/null | grep -q .
 }
@@ -198,6 +210,16 @@ if [[ "$SKIP_DEPLOY" == "false" && ${#SPECIFIC_TCS[@]} -eq 0 ]]; then
             echo -e "${YELLOW}[WARN]${NC} siddhi-store-redis extension not found — skipping TC46 deployment."
             echo "       Place siddhi-store-redis JAR in \${SI_HOME}/wso2/lib/plugins/, then restart SI."
             WITH_REDIS=false
+        fi
+    fi
+
+    if [[ "$WITH_MONGODB" == "true" ]]; then
+        if _has_mongodb_installer_artifacts; then
+            bash "${SCRIPT_DIR}/scripts/deploy.sh" --mongodb
+        else
+            echo -e "${RED}[FAIL]${NC} MongoDB store/CDC installer artifacts are not all present."
+            echo "       Start SI, run bin/extension-installer.sh install mongodb and install cdc-mongodb, then restart SI."
+            exit 1
         fi
     fi
 
@@ -300,6 +322,8 @@ tc_script() {
         TC50) echo "test_tc50_javascript_function.sh" ;;
         TC51) echo "test_tc51_javascript_eval.sh" ;;
         TC52) echo "test_tc52_oracle_ldap_store.sh" ;;
+        TC54) echo "test_tc54_mongodb_store.sh" ;;
+        TC55) echo "test_tc55_mongodb_cdc.sh" ;;
         *) echo "" ;;
     esac
 }
@@ -357,6 +381,8 @@ tc_label() {
         TC50) echo "JavaScript script function — named function transformation" ;;
         TC51) echo "JavaScript js:eval — dynamic arithmetic and boolean expressions" ;;
         TC52) echo "Oracle RDBMS store via jdbc:oracle:thin:@ldap:// naming [requires Oracle + OpenLDAP]" ;;
+        TC54) echo "MongoDB store — Extension Installer runtime dependencies + PK upsert [requires MongoDB]" ;;
+        TC55) echo "MongoDB CDC — change-stream insert/update events [requires MongoDB replica set]" ;;
         TC48) echo "PostgreSQL CDC listening mode — INSERT/UPDATE/DELETE via Debezium logical replication [requires PostgreSQL]" ;;
         TC49) echo "PostgreSQL CDC polling mode [requires PostgreSQL]" ;;
         *) echo "Unknown" ;;
@@ -373,6 +399,7 @@ RABBITMQ_TCS=(TC45)
 REDIS_TCS=(TC46)
 POSTGRES_TCS=(TC48 TC49)
 ORACLE_LDAP_TCS=(TC52)
+MONGODB_TCS=(TC54 TC55)
 THRIFT_TCS=(TC43)
 TOOLS_TCS=(TC36 TC37 TC38 TC53)  # TC35 is standalone — run before starting SI
 
@@ -424,6 +451,12 @@ else
 
     if [[ "$WITH_REDIS" == "true" ]]; then
         for tc in "${REDIS_TCS[@]}"; do
+            run_test "$tc" "$(tc_script "$tc")" "$(tc_label "$tc")"
+        done
+    fi
+
+    if [[ "$WITH_MONGODB" == "true" ]]; then
+        for tc in "${MONGODB_TCS[@]}"; do
             run_test "$tc" "$(tc_script "$tc")" "$(tc_label "$tc")"
         done
     fi

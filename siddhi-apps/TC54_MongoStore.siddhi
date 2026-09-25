@@ -1,0 +1,35 @@
+@App:name('TC54_MongoStore')
+@App:description('MongoDB store: Extension Installer-provided driver transitive dependencies persist HTTP events')
+
+/*
+Tests: siddhi-store-mongodb installed by SI Extension Installer with MongoDB driver 5.11.1,
+       driver core, BSON and BSON record codec; primary-key upsert and Store API query.
+Port : 8127
+Deps : MongoDB @ localhost:27017; extension-installer.sh install mongodb followed by SI restart.
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8127/TC54_MongoStore/CustomerStream',
+        @map(type='json'))
+define stream CustomerStream (customerId string, name string, tier string);
+
+@sink(type='log', prefix='[TC54-MONGO]')
+define stream CustomerLogStream (customerId string, name string, tier string);
+
+@store(type='mongodb',
+       mongodb.uri='mongodb://sitest:sitest123@localhost:27017/si_test_db?authSource=admin',
+       collection.name='TC54_MongoStore')
+@PrimaryKey('customerId')
+define table CustomerTable (customerId string, name string, tier string);
+
+@info(name='log-events')
+from CustomerStream
+select customerId, name, tier
+insert into CustomerLogStream;
+
+@info(name='to-mongodb')
+from CustomerStream
+select customerId, name, tier
+update or insert into CustomerTable
+    set CustomerTable.name = name, CustomerTable.tier = tier
+    on CustomerTable.customerId == customerId;

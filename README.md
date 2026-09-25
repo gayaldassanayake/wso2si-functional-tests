@@ -600,6 +600,22 @@ These tests self-skip when the required extension JARs are absent. To run them a
 ./run_all_tests.sh --with-redis
 ```
 
+### MongoDB installer tests
+
+TC54 verifies the MongoDB store path installed by SI itself. TC55 verifies MongoDB CDC change streams. The setup starts MongoDB 8 as a single-node replica set because change streams require it. Start MongoDB, start SI once, install both extensions, then restart SI so its downloaded JARs are available to OSGi:
+
+```bash
+./scripts/setup.sh --mongodb
+${SI_HOME}/bin/server.sh
+# In another terminal, once SI has started:
+${SI_HOME}/bin/extension-installer.sh install mongodb
+${SI_HOME}/bin/extension-installer.sh install cdc-mongodb
+# Stop and restart SI, then:
+./run_all_tests.sh --with-mongodb
+```
+
+The tests require `siddhi-store-mongodb` or `siddhi-io-cdc` plus `mongodb-driver-sync`, `mongodb-driver-core`, `bson`, and `bson-record-codec` version 5.11.1. They fail if any expected installer artifact is absent.
+
 ### Full suite
 
 All test cases including SI functional, Helm chart, and Kubernetes live tests:
@@ -646,6 +662,9 @@ You can also run a test script directly (apps must already be deployed):
 
 # Start PostgreSQL only
 ./scripts/setup.sh --postgres
+
+# Start MongoDB only
+./scripts/setup.sh --mongodb
 
 # Start everything
 ./scripts/setup.sh --all

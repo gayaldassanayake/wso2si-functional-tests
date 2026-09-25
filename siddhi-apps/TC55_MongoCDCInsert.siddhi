@@ -1,0 +1,20 @@
+@App:name('TC55_MongoCDCInsert')
+@App:description('TC55: capture MongoDB insert change events through the CDC extension')
+
+@source(type='cdc',
+        url='jdbc:mongodb://rs0/localhost:27017/si_test_db',
+        username='sitest',
+        password='sitest123',
+        table.name='TC55_MongoCDC',
+        topic.prefix='TC55MongoCDCInsert',
+        operation='insert',
+        @map(type='keyvalue'))
+define stream MongoInsertStream (recordId string, name string, tier string);
+
+@sink(type='log', prefix='[TC55-INSERT]')
+define stream MongoInsertLogStream (recordId string, name string, tier string);
+
+@info(name='TC55-log-insert')
+from MongoInsertStream
+select recordId, name, tier
+insert into MongoInsertLogStream;

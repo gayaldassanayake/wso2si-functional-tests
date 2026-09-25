@@ -7,6 +7,7 @@
 #   ./scripts/deploy.sh --mysql             # Add TC07, TC11
 #   ./scripts/deploy.sh --rabbitmq          # Add TC45
 #   ./scripts/deploy.sh --redis             # Add TC46
+#   ./scripts/deploy.sh --mongodb           # Add TC54 (TC55 deploys its CDC apps sequentially)
 #   ./scripts/deploy.sh --postgres          # Add TC49 (TC48 apps are deployed by its own script)
 #   ./scripts/deploy.sh --thrift            # Add TC43
 #   ./scripts/deploy.sh --all               # All test cases
@@ -53,6 +54,9 @@ MYSQL_APPS=(TC07_MySQLPersist.siddhi TC11_CDCPolling.siddhi)
 # that occur when multiple connectors share the same MySQL URL.
 RABBITMQ_APPS=(TC45_RabbitMQPassThrough.siddhi)
 REDIS_APPS=(TC46_RedisStore.siddhi)
+# TC55 deploys and undeploys its CDC apps in sequence to avoid multiple embedded
+# Debezium MongoDB connectors sharing the same URI in a single SI runtime.
+MONGODB_APPS=(TC54_MongoStore.siddhi)
 POSTGRES_APPS=(TC49_CDCPgPolling.siddhi)
 THRIFT_APPS=(TC43_ThriftReceiver.siddhi TC43_ThriftSenderTCP.siddhi)
 FILE_APPS=(TC12_FileSource.siddhi)
@@ -86,6 +90,9 @@ for arg in "$@"; do
         --redis)
             TO_DEPLOY+=("${REDIS_APPS[@]}")
             ;;
+        --mongodb)
+            TO_DEPLOY+=("${MONGODB_APPS[@]}")
+            ;;
         --thrift)
             TO_DEPLOY+=("${THRIFT_APPS[@]}")
             ;;
@@ -94,7 +101,7 @@ for arg in "$@"; do
             TO_DEPLOY+=(TC12_FileSource.siddhi)
             ;;
         --all)
-            TO_DEPLOY+=("${CORE_APPS[@]}" "${KAFKA_APPS[@]}" "${MYSQL_APPS[@]}" "${RABBITMQ_APPS[@]}" "${REDIS_APPS[@]}" "${THRIFT_APPS[@]}" "${POSTGRES_APPS[@]}")
+            TO_DEPLOY+=("${CORE_APPS[@]}" "${KAFKA_APPS[@]}" "${MYSQL_APPS[@]}" "${RABBITMQ_APPS[@]}" "${REDIS_APPS[@]}" "${MONGODB_APPS[@]}" "${THRIFT_APPS[@]}" "${POSTGRES_APPS[@]}")
             INCLUDE_FILE=true
             ;;
         TC*)
