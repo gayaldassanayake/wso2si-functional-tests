@@ -6,6 +6,7 @@
 #   ./scripts/setup.sh --mysql          # Start MySQL only
 #   ./scripts/setup.sh --rabbitmq       # Start RabbitMQ only
 #   ./scripts/setup.sh --redis          # Start Redis only
+#   ./scripts/setup.sh --mongodb        # Start MongoDB only
 #   ./scripts/setup.sh --oracle-ldap    # Start Oracle + OpenLDAP (TC52, not part of --all)
 #   ./scripts/setup.sh --all            # Start all services
 
@@ -21,6 +22,7 @@ WITH_KAFKA=false
 WITH_MYSQL=false
 WITH_RABBITMQ=false
 WITH_REDIS=false
+WITH_MONGODB=false
 WITH_POSTGRES=false
 WITH_ORACLE_LDAP=false
 
@@ -30,18 +32,19 @@ for arg in "$@"; do
         --mysql)    WITH_MYSQL=true ;;
         --rabbitmq) WITH_RABBITMQ=true ;;
         --redis)    WITH_REDIS=true ;;
+        --mongodb)  WITH_MONGODB=true ;;
         --postgres) WITH_POSTGRES=true ;;
         --oracle-ldap) WITH_ORACLE_LDAP=true ;;
-        --all)      WITH_KAFKA=true; WITH_MYSQL=true; WITH_RABBITMQ=true; WITH_REDIS=true; WITH_POSTGRES=true ;;
+        --all)      WITH_KAFKA=true; WITH_MYSQL=true; WITH_RABBITMQ=true; WITH_REDIS=true; WITH_MONGODB=true; WITH_POSTGRES=true ;;
         *)
-            echo "Usage: $0 [--kafka] [--mysql] [--rabbitmq] [--redis] [--postgres] [--oracle-ldap] [--all]"
+            echo "Usage: $0 [--kafka] [--mysql] [--rabbitmq] [--redis] [--mongodb] [--postgres] [--oracle-ldap] [--all]"
             exit 1
             ;;
     esac
 done
 
-if [[ "$WITH_KAFKA" == "false" && "$WITH_MYSQL" == "false" && "$WITH_RABBITMQ" == "false" && "$WITH_REDIS" == "false" && "$WITH_POSTGRES" == "false" && "$WITH_ORACLE_LDAP" == "false" ]]; then
-    echo "Specify at least one service: --kafka, --mysql, --rabbitmq, --redis, --postgres, or --all"
+if [[ "$WITH_KAFKA" == "false" && "$WITH_MYSQL" == "false" && "$WITH_RABBITMQ" == "false" && "$WITH_REDIS" == "false" && "$WITH_MONGODB" == "false" && "$WITH_POSTGRES" == "false" && "$WITH_ORACLE_LDAP" == "false" ]]; then
+    echo "Specify at least one service: --kafka, --mysql, --rabbitmq, --redis, --mongodb, --postgres, or --all"
     exit 1
 fi
 
@@ -64,6 +67,9 @@ if [[ "$WITH_RABBITMQ" == "true" ]]; then
 fi
 if [[ "$WITH_REDIS" == "true" ]]; then
     SERVICES+=("redis")
+fi
+if [[ "$WITH_MONGODB" == "true" ]]; then
+    SERVICES+=("mongodb")
 fi
 if [[ "$WITH_POSTGRES" == "true" ]]; then
     SERVICES+=("postgres")
@@ -111,6 +117,9 @@ fi
 if [[ "$WITH_REDIS" == "true" ]]; then
     wait_healthy "si-test-redis"
 fi
+if [[ "$WITH_MONGODB" == "true" ]]; then
+    wait_healthy "${MONGODB_CONTAINER}"
+fi
 if [[ "$WITH_POSTGRES" == "true" ]]; then
     wait_healthy "si-test-postgres"
 fi
@@ -149,6 +158,38 @@ if [[ "$WITH_REDIS" == "true" ]]; then
     docker exec "${REDIS_CONTAINER}" redis-cli ping 2>/dev/null | grep -q PONG \
         && echo "  Redis: PONG received" \
         || echo "[WARN] Redis ping failed"
+fi
+
+if [[ "$WITH_MONGODB" == "true" ]]; then
+    echo "Verifying MongoDB..."
+    docker exec "${MONGODB_CONTAINER}" mongosh --quiet --username "${MONGODB_USER}" --password "${MONGODB_PASS}" \
+        --authenticationDatabase admin --eval "db.adminCommand('ping').ok" 2>/dev/null | grep -q 1 \
+        && echo "  MongoDB: ping OK" \
+        || echo "  [WARN] MongoDB ping failed"
+
+    echo -n "  Initializing MongoDB replica set '${MONGODB_REPLICA_SET}'..."
+    if docker exec "${MONGODB_CONTAINER}" mongosh --quiet --username "${MONGODB_USER}" --password "${MONGODB_PASS}" \
+        --authenticationDatabase admin --eval "rs.status().ok" 2>/dev/null | grep -q 1; then
+        echo " already initialized"
+    else
+        docker exec "${MONGODB_CONTAINER}" mongosh --quiet --username "${MONGODB_USER}" --password "${MONGODB_PASS}" \
+            --authenticationDatabase admin --eval \
+            "rs.initiate({_id: '${MONGODB_REPLICA_SET}', members: [{_id: 0, host: 'localhost:${MONGODB_PORT}'}]})" >/dev/null
+        for _ in $(seq 1 30); do
+            if docker exec "${MONGODB_CONTAINER}" mongosh --quiet --username "${MONGODB_USER}" --password "${MONGODB_PASS}" \
+                --authenticationDatabase admin --eval "rs.status().myState" 2>/dev/null | grep -q 1; then
+                echo " PRIMARY"
+                break
+            fi
+            sleep 1
+        done
+        if ! docker exec "${MONGODB_CONTAINER}" mongosh --quiet --username "${MONGODB_USER}" --password "${MONGODB_PASS}" \
+            --authenticationDatabase admin --eval "rs.status().myState" 2>/dev/null | grep -q 1; then
+            echo " FAILED"
+            echo "[ERROR] MongoDB replica set '${MONGODB_REPLICA_SET}' did not become PRIMARY"
+            exit 1
+        fi
+    fi
 fi
 
 # ─── MySQL post-setup ────────────────────────────────────────────────────────

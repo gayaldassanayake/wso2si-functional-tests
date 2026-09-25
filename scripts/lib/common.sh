@@ -80,6 +80,10 @@ require_redis_running() {
     require_docker_container "${REDIS_CONTAINER}"
 }
 
+require_mongodb_running() {
+    require_docker_container "${MONGODB_CONTAINER}"
+}
+
 require_file() {
     local path="$1"
     if [[ ! -f "${path}" ]]; then
@@ -604,6 +608,42 @@ assert_mysql_count() {
         log_fail "${description}: expected ${expected} rows in ${table}, got '${actual}'"
         return 1
     fi
+}
+
+# ─── MongoDB helpers (TC54) ─────────────────────────────────────────────────
+mongodb_eval() {
+    local expression="$1"
+    docker exec "${MONGODB_CONTAINER}" mongosh --quiet --username "${MONGODB_USER}" --password "${MONGODB_PASS}" \
+        --authenticationDatabase admin "${MONGODB_DB}" --eval "${expression}" 2>/dev/null
+}
+
+assert_mongodb_count() {
+    local description="$1"
+    local collection="$2"
+    local expected="$3"
+    local actual
+    actual=$(mongodb_eval "db.getCollection('${collection}').countDocuments({})" | tr -d '[:space:]')
+    if [[ "${actual}" == "${expected}" ]]; then
+        log_pass "${description} (MongoDB ${collection} count = ${actual})"
+        return 0
+    fi
+    log_fail "${description}: expected ${expected} documents in ${collection}, got '${actual}'"
+    return 1
+}
+
+assert_mongodb_field() {
+    local description="$1"
+    local collection="$2"
+    local customer_id="$3"
+    local expected_tier="$4"
+    local actual
+    actual=$(mongodb_eval "const d = db.getCollection('${collection}').findOne({customerId: '${customer_id}'}); print(d ? d.tier : '');" | tr -d '[:space:]')
+    if [[ "${actual}" == "${expected_tier}" ]]; then
+        log_pass "${description} (tier = ${actual})"
+        return 0
+    fi
+    log_fail "${description}: expected tier '${expected_tier}', got '${actual}'"
+    return 1
 }
 
 # ─── PostgreSQL helpers (TC48, TC49) ─────────────────────────────────────────

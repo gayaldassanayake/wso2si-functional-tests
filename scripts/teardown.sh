@@ -7,6 +7,7 @@
 #   ./scripts/teardown.sh --mysql       # Also stop MySQL
 #   ./scripts/teardown.sh --rabbitmq    # Also stop RabbitMQ
 #   ./scripts/teardown.sh --redis       # Also stop Redis
+#   ./scripts/teardown.sh --mongodb     # Also stop MongoDB
 #   ./scripts/teardown.sh --postgres    # Also stop PostgreSQL
 #   ./scripts/teardown.sh --all         # Remove apps + stop all Docker services
 
@@ -22,6 +23,7 @@ STOP_KAFKA=false
 STOP_MYSQL=false
 STOP_RABBITMQ=false
 STOP_REDIS=false
+STOP_MONGODB=false
 STOP_POSTGRES=false
 
 for arg in "$@"; do
@@ -30,10 +32,11 @@ for arg in "$@"; do
         --mysql)    STOP_MYSQL=true ;;
         --rabbitmq) STOP_RABBITMQ=true ;;
         --redis)    STOP_REDIS=true ;;
+        --mongodb)  STOP_MONGODB=true ;;
         --postgres) STOP_POSTGRES=true ;;
-        --all)      STOP_KAFKA=true; STOP_MYSQL=true; STOP_RABBITMQ=true; STOP_REDIS=true; STOP_POSTGRES=true ;;
+        --all)      STOP_KAFKA=true; STOP_MYSQL=true; STOP_RABBITMQ=true; STOP_REDIS=true; STOP_MONGODB=true; STOP_POSTGRES=true ;;
         *)
-            echo "Usage: $0 [--kafka] [--mysql] [--rabbitmq] [--redis] [--postgres] [--all]"
+            echo "Usage: $0 [--kafka] [--mysql] [--rabbitmq] [--redis] [--mongodb] [--postgres] [--all]"
             exit 1
             ;;
     esac
@@ -72,6 +75,9 @@ if [[ "$STOP_RABBITMQ" == "true" ]]; then
 fi
 if [[ "$STOP_REDIS" == "true" ]]; then
     SERVICES+=("redis")
+fi
+if [[ "$STOP_MONGODB" == "true" ]]; then
+    SERVICES+=("mongodb")
 fi
 if [[ "$STOP_POSTGRES" == "true" ]]; then
     SERVICES+=("postgres")

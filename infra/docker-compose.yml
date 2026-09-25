@@ -102,6 +102,29 @@ services:
       retries: 10
       start_period: 5s
 
+  mongodb:
+    image: mongo:8.0
+    container_name: si-test-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: sitest
+      MONGO_INITDB_ROOT_PASSWORD: sitest123
+    entrypoint:
+      - bash
+      - -c
+      - |
+        head -c 756 /dev/urandom | base64 > /tmp/mongodb-keyfile
+        chmod 400 /tmp/mongodb-keyfile
+        chown mongodb:mongodb /tmp/mongodb-keyfile
+        exec docker-entrypoint.sh mongod --replSet rs0 --bind_ip_all --keyFile /tmp/mongodb-keyfile
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --username $$MONGO_INITDB_ROOT_USERNAME --password $$MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin --eval \"db.adminCommand('ping').ok\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
   postgres:
     image: postgres:16
     container_name: si-test-postgres
