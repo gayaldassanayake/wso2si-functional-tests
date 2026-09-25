@@ -28,6 +28,8 @@
 #   3. For --with-kafka, --with-mysql, --with-rabbitmq, --with-redis: run ./scripts/setup.sh first
 #   4. For --with-tools: set TOOLS_PACK_HOME to the SI pack under test
 #      TC35 (server lifecycle) is standalone — run it separately before starting SI
+#   5. TC56 (Kafka deployment.yaml config) is standalone — run it with SI stopped:
+#      SI_HOME=... bash scripts/test_tc56_kafka_deployment_config.sh
 
 set -euo pipefail
 
@@ -324,6 +326,7 @@ tc_script() {
         TC52) echo "test_tc52_oracle_ldap_store.sh" ;;
         TC54) echo "test_tc54_mongodb_store.sh" ;;
         TC55) echo "test_tc55_mongodb_cdc.sh" ;;
+        TC56) echo "test_tc56_kafka_deployment_config.sh" ;;
         *) echo "" ;;
     esac
 }
@@ -383,6 +386,7 @@ tc_label() {
         TC52) echo "Oracle RDBMS store via jdbc:oracle:thin:@ldap:// naming [requires Oracle + OpenLDAP]" ;;
         TC54) echo "MongoDB store — Extension Installer runtime dependencies + PK upsert [requires MongoDB]" ;;
         TC55) echo "MongoDB CDC — change-stream insert/update events [requires MongoDB replica set]" ;;
+        TC56) echo "Kafka source/sink options from deployment.yaml [standalone, requires Kafka]" ;;
         TC48) echo "PostgreSQL CDC listening mode — INSERT/UPDATE/DELETE via Debezium logical replication [requires PostgreSQL]" ;;
         TC49) echo "PostgreSQL CDC polling mode [requires PostgreSQL]" ;;
         *) echo "Unknown" ;;

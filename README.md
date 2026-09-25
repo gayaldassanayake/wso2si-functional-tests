@@ -8,6 +8,7 @@ A self-contained regression test suite for WSO2 Streaming Integrator (SI) 4.3.x 
 - **5 distribution tool tests** (TC35–TC38, TC53) — server lifecycle, `jartobundle.sh`, `osgi-lib.sh`, `ciphertool.sh`, dependency version floors.
 - **2 PostgreSQL CDC tests** (TC48, TC49) — listening mode via Debezium logical replication, and polling mode.
 - **1 Oracle LDAP naming test** (TC52) — RDBMS store on Oracle reached through a `jdbc:oracle:thin:@ldap://` URL.
+- **1 Kafka `deployment.yaml` config test** (TC56, standalone) — Kafka source/sink options set globally under `siddhi.extensions`.
 - **1 CDC listening test** (TC39) — MySQL CDC via Debezium binlog (INSERT/UPDATE/DELETE events).
 - **3 optional extension tests** (TC43, TC45, TC46) — Thrift DataBridge, RabbitMQ pass-through, Redis store. Each self-skips when the required SI extension JARs are absent.
 
@@ -397,6 +398,24 @@ Covers BNYMDMAPROD-232. The Oracle thin driver resolves `jdbc:oracle:thin:@ldap:
 Compose seeds OpenLDAP with a minimal Oracle Net schema (`infra/ldap-init/`) and a `FREEPDB1` net-service entry pointing at the Oracle container.
 
 carbon-jndi only hands out JNDI factories registered as OSGi services, so the JDK's `com.sun.jndi.ldap.LdapCtxFactory` must be registered by a bundle. `infra/ldap-ctx-bundle/` builds a minimal one, equivalent to the provider bundle customers deploy for Oracle LDAP naming. On JDK 17+ that bundle needs `--add-exports=java.naming/com.sun.jndi.ldap=ALL-UNNAMED` to instantiate the factory. SI 4.4.1's `carbon.sh`/`carbon.bat` pass it; for older packs set it through `JAVA_OPTS`.
+
+### Kafka deployment.yaml Config Test (TC56)
+
+Covers EIINTERNAL-637. Kafka source and sink options set under `siddhi.extensions` in `deployment.yaml` must replace the app's values for every Kafka source/sink on the node. siddhi-io-kafka 5.0.10–5.0.21 read them, then overwrote six source options (`optional.configuration`, `seq.enabled`, `is.binary.message`, `enable.offsets.commit`, `enable.async.commit`, `topic.offsets.map`) with the app's values again, so global SASL/SSL settings were silently dropped. Fixed in 5.0.22.
+
+TC56 is **standalone**: it needs SI stopped, appends a `siddhi.extensions` block to `deployment.yaml`, starts SI, and restores `deployment.yaml` and stops SI on exit.
+
+| TC | Script | Feature Area | External Deps |
+|---|---|---|---|
+| TC56 | `test_tc56_kafka_deployment_config.sh` | Source `optional.configuration` (`client.id`) and sink `bootstrap.servers` from `deployment.yaml` | Kafka, Kafka client bundles in `lib/` (STANDALONE) |
+
+Checks: the consumer group `tc56-group` shows CLIENT-ID `tc56-cfgtest` (it shows a generated id on 5.0.21), events flow through the source, and the sink delivers even though the app's `bootstrap.servers` is a closed port.
+
+```bash
+./scripts/setup.sh --kafka
+# with SI running once: bin/extension-installer.sh install kafka, then stop SI
+SI_HOME=/path/to/wso2si-4.4.1 bash scripts/test_tc56_kafka_deployment_config.sh
+```
 
 ### Core SI Runtime Tests (TC40–TC42, TC44, TC47, TC50–TC51)
 

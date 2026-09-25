@@ -1,0 +1,34 @@
+@App:name('TC56_KafkaDeploymentConfig')
+@App:description('Kafka source and sink options overridden from deployment.yaml (EIINTERNAL-637)')
+
+/*
+Tests: siddhi.extensions entries in deployment.yaml replace the app's Kafka source/sink options.
+Deps : Kafka (Docker Compose), Kafka OSGi jars in $SI_HOME/lib/, deployment.yaml patched by TC56
+Note : no partition.no.list, so the consumer joins the group and its CLIENT-ID is visible.
+       The sink's bootstrap.servers points at a closed port; deployment.yaml supplies the real one.
+*/
+
+@source(type='kafka',
+        topic.list='si-test-tc56-input',
+        threading.option='single.thread',
+        group.id='tc56-group',
+        bootstrap.servers='127.0.0.1:9092',
+        @map(type='json'))
+define stream ConfigInputStream (name string, amount double);
+
+@sink(type='kafka',
+      topic='si-test-tc56-output',
+      bootstrap.servers='127.0.0.1:19092',
+      @map(type='json'))
+define stream ConfigOutputStream (name string, amount double);
+
+@sink(type='log', prefix='[TC56-KAFKA]')
+define stream ConfigLogStream (name string, amount double);
+
+from ConfigInputStream
+select name, amount
+insert into ConfigLogStream;
+
+from ConfigInputStream
+select name, amount
+insert into ConfigOutputStream;
