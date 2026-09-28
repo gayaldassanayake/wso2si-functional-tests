@@ -1,0 +1,28 @@
+@App:name('TC63_FileSearchDynamicRegex')
+@App:description('file:search with a regex taken from each event (wso2/product-integrator-si#377)')
+
+/*
+Tests: file:search must use each event's regex, not the first event's, both with exclude.subdirectories
+       and with subdirectory.depth.
+Port : 8133
+Deps : /tmp/si-test-tc63 created by the test script
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8133/TC63_FileSearchDynamicRegex/SearchStream',
+        @map(type='json'))
+define stream SearchStream (id string, regex string);
+
+@sink(type='log', prefix='[TC63-FLAT]')
+define stream FlatResultStream (id string, fileNameList object);
+
+@sink(type='log', prefix='[TC63-DEPTH]')
+define stream DepthResultStream (id string, fileNameList object);
+
+from SearchStream#file:search('/tmp/si-test-tc63', regex, true)
+select id, fileNameList
+insert into FlatResultStream;
+
+from SearchStream#file:search('/tmp/si-test-tc63', regex, 1)
+select id, fileNameList
+insert into DepthResultStream;

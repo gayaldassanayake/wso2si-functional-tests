@@ -337,6 +337,7 @@ tc_script() {
         TC60) echo "test_tc60_oracle_error_store.sh" ;;
         TC61) echo "test_tc61_table_stats_markin.sh" ;;
         TC62) echo "test_tc62_kafka_state_persistence.sh" ;;
+        TC63) echo "test_tc63_file_search_dynamic_regex.sh" ;;
         *) echo "" ;;
     esac
 }
@@ -403,6 +404,7 @@ tc_label() {
         TC60) echo "Error store on Oracle — create, store, list, replay, purge [standalone, requires Oracle]" ;;
         TC61) echo "RDBMS table statistics while operations fail — no MarkIn errors [requires MySQL driver, Docker]" ;;
         TC62) echo "Kafka source under state persistence — no duplicates across cycles and restart [standalone, requires Kafka]" ;;
+        TC63) echo "file:search uses each event's regex when it comes from an attribute" ;;
         TC48) echo "PostgreSQL CDC listening mode — INSERT/UPDATE/DELETE via Debezium logical replication [requires PostgreSQL]" ;;
         TC49) echo "PostgreSQL CDC polling mode [requires PostgreSQL]" ;;
         *) echo "Unknown" ;;
@@ -410,7 +412,7 @@ tc_label() {
 }
 
 # Core tests (always run unless specific TCs are given)
-CORE_TCS=(TC01 TC02 TC03 TC04 TC05 TC06 TC09 TC10 TC12 TC13 TC14 TC15 TC16 TC17 TC18 TC40 TC41 TC42 TC44 TC47 TC50 TC51 TC57 TC59)
+CORE_TCS=(TC01 TC02 TC03 TC04 TC05 TC06 TC09 TC10 TC12 TC13 TC14 TC15 TC16 TC17 TC18 TC40 TC41 TC42 TC44 TC47 TC50 TC51 TC57 TC59 TC63)
 
 # Optional infra-dependent tests
 KAFKA_TCS=(TC08 TC58)
