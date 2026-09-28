@@ -145,4 +145,52 @@ else
     log_fail "T9: these bundles embed their own Gson copy:${gson_bundled}"
 fi
 
+log_info "T10: log4j embedded in pax-logging at or above ${LOG4J_MIN_VERSION}"
+plugins="${TOOLS_PACK_HOME}/wso2/lib/plugins"
+pax_jars=("${plugins}"/org.ops4j.pax.logging.pax-logging-api_*.jar "${plugins}"/org.ops4j.pax.logging.pax-logging-log4j2_*.jar)
+pax_found=""
+for jar in "${pax_jars[@]}"; do
+    [[ -f "${jar}" ]] || continue
+    pax_found=yes
+    # pax-logging-api carries no log4j pom.properties, so log4j-api is read from its export version.
+    while read -r artifact version; do
+        if [[ "${version}" != "none" ]] && version_ge "${version}" "${LOG4J_MIN_VERSION}"; then
+            log_pass "T10: $(basename "${jar}") embeds ${artifact} ${version}"
+        else
+            log_fail "T10: $(basename "${jar}") embeds ${artifact} ${version}, below ${LOG4J_MIN_VERSION}"
+        fi
+    done < <(python3 - "${jar}" <<'EOF'
+import re, sys, zipfile
+z = zipfile.ZipFile(sys.argv[1])
+if 'pax-logging-api' in sys.argv[1]:
+    mf = re.sub(r'\r?\n ', '', z.read('META-INF/MANIFEST.MF').decode())
+    m = re.search(r'(?:^|,)org\.apache\.logging\.log4j;version="([^"]+)"', mf.split('Export-Package:', 1)[-1])
+    print('log4j-api', m.group(1) if m else 'none')
+else:
+    for a in ('log4j-core', 'log4j-layout-template-json'):
+        p = 'META-INF/maven/org.apache.logging.log4j/%s/pom.properties' % a
+        v = re.search(r'^version=(\S+)', z.read(p).decode(), re.M) if p in z.namelist() else None
+        print(a, v.group(1) if v else 'none')
+EOF
+)
+done
+[[ -n "${pax_found}" ]] || log_fail "T10: no pax-logging bundles in wso2/lib/plugins"
+
+log_info "T11: every bundle the launcher loads by filename exists"
+launchers=("${TOOLS_PACK_HOME}"/bin/bootstrap/org.wso2.carbon.launcher-*.jar)
+if [[ ! -f "${launchers[0]}" ]]; then
+    log_fail "T11: no launcher jar in bin/bootstrap"
+else
+    missing_initial=""
+    for entry in $(unzip -p "${launchers[0]}" launch.properties | tr -d '\\\r' \
+            | grep -oE 'file:plugins/[^@,[:space:]]+\.jar'); do
+        [[ -f "${plugins}/${entry#file:plugins/}" ]] || missing_initial+=" ${entry#file:plugins/}"
+    done
+    if [[ -z "${missing_initial}" ]]; then
+        log_pass "T11: $(basename "${launchers[0]}") initial bundles all present in wso2/lib/plugins"
+    else
+        log_fail "T11: $(basename "${launchers[0]}") loads missing jars:${missing_initial}"
+    fi
+fi
+
 print_summary; tc_exit_code

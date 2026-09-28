@@ -354,7 +354,7 @@ TC36–TC38 test the WSO2 SI distribution tools. They require `TOOLS_PACK_HOME` 
 | TC36 | `test_tc36_jartobundle.sh` | `jartobundle.sh` — JAR to OSGi bundle conversion | `TOOLS_PACK_HOME` |
 | TC37 | `test_tc37_osgi_lib.sh` | `osgi-lib.sh` — register new bundle in `bundles.info` | `TOOLS_PACK_HOME` |
 | TC38 | `test_tc38_ciphertool.sh` | `ciphertool.sh` — encrypt/decrypt round-trip | `TOOLS_PACK_HOME` |
-| TC53 | `test_tc53_dependency_floors.sh` | Netty/Jackson security floors (`NETTY_MIN_VERSION`, `JACKSON_MIN_VERSION`), no duplicate versions, no dangling `bundles.info` entries, snappy-java and Avro embedded in `siddhi-map-avro` (`AVRO_MIN_VERSION`), no `lib/` bundle importing `com.google.gson.internal`, no `lib/` bundle embedding Gson (siddhi-io-kafka only warns) | `TOOLS_PACK_HOME` |
+| TC53 | `test_tc53_dependency_floors.sh` | Netty/Jackson security floors (`NETTY_MIN_VERSION`, `JACKSON_MIN_VERSION`), no duplicate versions, no dangling `bundles.info` entries, snappy-java and Avro embedded in `siddhi-map-avro` (`AVRO_MIN_VERSION`), no `lib/` bundle importing `com.google.gson.internal`, no `lib/` bundle embedding Gson (siddhi-io-kafka only warns), log4j embedded in pax-logging at or above `LOG4J_MIN_VERSION`, every bundle the launcher loads by filename present in `wso2/lib/plugins` | `TOOLS_PACK_HOME` |
 
 ### CDC Listening Test (TC39)
 
