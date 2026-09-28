@@ -1,0 +1,27 @@
+@App:name('TC62_KafkaPersistence')
+@App:description('Kafka source with periodic state persistence and restart (BNYMDMAPROD-250)')
+
+/*
+Tests: each persistence cycle pauses and resumes the Kafka source; every event must be emitted exactly once
+       across persistence cycles and a restart. partition.no.list is needed: the old resume() only re-seeked
+       assigned partitions.
+Deps : Kafka, Kafka client bundles in $SI_HOME/lib/, deployment.yaml patched by TC62.
+       TC62 replaces @RUN_ID@ so each run gets a fresh topic and consumer group.
+*/
+
+@source(type='kafka',
+        topic.list='si-test-tc62-@RUN_ID@',
+        partition.no.list='0,1,2,3',
+        threading.option='single.thread',
+        group.id='tc62-@RUN_ID@',
+        bootstrap.servers='127.0.0.1:9092',
+        optional.configuration='auto.offset.reset:earliest',
+        @map(type='json'))
+define stream KafkaInStream (id string, seq int);
+
+@sink(type='file', file.uri='/tmp/si-test-tc62-out.csv', append='true', @map(type='csv'))
+define stream OutStream (id string, seq int);
+
+from KafkaInStream
+select id, seq
+insert into OutStream;

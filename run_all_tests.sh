@@ -32,6 +32,8 @@
 #      SI_HOME=... bash scripts/test_tc56_kafka_deployment_config.sh
 #   6. TC60 (Oracle error store) is standalone — run it with SI stopped:
 #      SI_HOME=... bash scripts/test_tc60_oracle_error_store.sh
+#   7. TC62 (Kafka state persistence) is standalone — run it with SI stopped:
+#      SI_HOME=... bash scripts/test_tc62_kafka_state_persistence.sh
 
 set -euo pipefail
 
@@ -333,6 +335,7 @@ tc_script() {
         TC58) echo "test_tc58_avro_kafka_roundtrip.sh" ;;
         TC59) echo "test_tc59_keyword_attribute_names.sh" ;;
         TC60) echo "test_tc60_oracle_error_store.sh" ;;
+        TC62) echo "test_tc62_kafka_state_persistence.sh" ;;
         *) echo "" ;;
     esac
 }
@@ -397,6 +400,7 @@ tc_label() {
         TC58) echo "Avro sink/source mapping over Kafka — round trip, wire encoding, external record [requires Kafka]" ;;
         TC59) echo "Siddhi keywords (offset, in, per, at, set) as attribute names" ;;
         TC60) echo "Error store on Oracle — create, store, list, replay, purge [standalone, requires Oracle]" ;;
+        TC62) echo "Kafka source under state persistence — no duplicates across cycles and restart [standalone, requires Kafka]" ;;
         TC48) echo "PostgreSQL CDC listening mode — INSERT/UPDATE/DELETE via Debezium logical replication [requires PostgreSQL]" ;;
         TC49) echo "PostgreSQL CDC polling mode [requires PostgreSQL]" ;;
         *) echo "Unknown" ;;

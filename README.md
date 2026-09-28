@@ -438,6 +438,23 @@ Checks: the table is created on the first stored error; entries get increasing i
 SI_HOME=/path/to/wso2si-4.4.1 bash scripts/test_tc60_oracle_error_store.sh
 ```
 
+### Kafka State Persistence Test (TC62)
+
+Covers BNYMDMAPROD-250. Each persistence cycle pauses and resumes every source. Before siddhi-io-kafka 5.0.19, resume also seeked the consumer back to the snapshot offsets, which duplicated events.
+
+TC62 is **standalone**: it needs SI stopped, enables `state.persistence` (1-minute interval) in `deployment.yaml`, starts SI, and restores `deployment.yaml` and stops SI on exit. It takes about 6 minutes.
+
+| TC | Script | Feature Area | External Deps |
+|---|---|---|---|
+| TC62 | `test_tc62_kafka_state_persistence.sh` | Kafka source (`partition.no.list='0,1,2,3'`, single thread) with periodic persistence and a restart; file sink counts | Kafka, Kafka client bundles in `lib/` (STANDALONE) |
+
+Checks: 100 events sent at 1/s over at least two persistence cycles are each emitted once, with no `Seeking partition` on resume; after a restart the state is restored and only the 10 new events arrive (110 in total, all unique). The old code only re-seeked assigned partitions, so the app sets `partition.no.list`. With siddhi-io-kafka 5.0.18 the seek-back check fails.
+
+```bash
+./scripts/setup.sh --kafka
+SI_HOME=/path/to/wso2si-4.4.1 bash scripts/test_tc62_kafka_state_persistence.sh
+```
+
 ### Avro over Kafka Test (TC58)
 
 `siddhi-map-avro` embeds its own Avro and snappy-java, so a server-wide version bump doesn't reach them. TC58 exercises the mapper after they change (siddhi-map-avro 2.2.6: Avro 1.11.5, snappy-java 1.1.10.7). The embedded versions themselves are checked by TC53 T7.
