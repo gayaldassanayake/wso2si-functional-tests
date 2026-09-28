@@ -87,4 +87,46 @@ else
     log_fail "T6: entries without a jar:${dangling}"
 fi
 
+log_info "T7: siddhi-map-avro embeds snappy-java >= 1.1.10.4 and Avro >= ${AVRO_MIN_VERSION}"
+avro_jars=("${TOOLS_PACK_HOME}"/lib/siddhi-map-avro-*.jar)
+if [[ ! -f "${avro_jars[0]}" ]]; then
+    log_fail "T7: no siddhi-map-avro jar in lib/"
+else
+    # snappy-java's VERSION file only carries the native library version (1.1.10 for every
+    # 1.1.10.x), so the CVE-2024-36124 fix (1.1.10.4) is detected by the chunk-size limit it added.
+    read -r snappy_fix avro_version < <(python3 - "${avro_jars[0]}" <<'EOF'
+import re, sys, zipfile
+z = zipfile.ZipFile(sys.argv[1])
+names = set(z.namelist())
+cls = 'org/xerial/snappy/SnappyInputStream.class'
+fix = cls in names and b'max configured chunk size' in z.read(cls)
+mf = re.sub(r'\r?\n ', '', z.read('META-INF/MANIFEST.MF').decode())
+m = re.search(r'org\.apache\.avro;version="([^"]+)"', mf)
+print('yes' if fix else 'no', m.group(1) if m else 'none')
+EOF
+)
+    if [[ "${snappy_fix}" == "yes" ]]; then
+        log_pass "T7: $(basename "${avro_jars[0]}") embeds snappy-java with the CVE-2024-36124 fix"
+    else
+        log_fail "T7: $(basename "${avro_jars[0]}") embeds snappy-java older than 1.1.10.4"
+    fi
+    if [[ "${avro_version}" != "none" ]] && version_ge "${avro_version}" "${AVRO_MIN_VERSION}"; then
+        log_pass "T7: embedded Avro ${avro_version} >= ${AVRO_MIN_VERSION}"
+    else
+        log_fail "T7: embedded Avro ${avro_version} below ${AVRO_MIN_VERSION}"
+    fi
+fi
+
+log_info "T8: no lib/ bundle imports Gson's internal package"
+gson_internal=""
+for jar in "${TOOLS_PACK_HOME}"/lib/*.jar; do
+    unzip -p "${jar}" META-INF/MANIFEST.MF 2>/dev/null | tr -d '\r\n ' | grep -q 'com\.google\.gson\.internal[;,"]' \
+        && gson_internal+=" $(basename "${jar}")"
+done
+if [[ -z "${gson_internal}" ]]; then
+    log_pass "T8: no bundle in lib/ imports com.google.gson.internal"
+else
+    log_fail "T8: com.google.gson.internal is not exported by any Gson bundle, but imported by:${gson_internal}"
+fi
+
 print_summary; tc_exit_code
