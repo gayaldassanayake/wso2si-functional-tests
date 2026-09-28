@@ -129,4 +129,20 @@ else
     log_fail "T8: com.google.gson.internal is not exported by any Gson bundle, but imported by:${gson_internal}"
 fi
 
+log_info "T9: no lib/ bundle embeds its own Gson"
+gson_bundled=""
+for jar in "${TOOLS_PACK_HOME}"/lib/*.jar; do
+    listing="$(unzip -Z1 "${jar}" 2>/dev/null)"
+    grep -q '^com/google/gson/' <<<"${listing}" || continue
+    case "$(basename "${jar}")" in
+        siddhi-io-kafka-*) log_warn "T9: $(basename "${jar}") still bundles Gson (known, not a 1.1.0 regression)" ;;
+        *) gson_bundled+=" $(basename "${jar}")" ;;
+    esac
+done
+if [[ -z "${gson_bundled}" ]]; then
+    log_pass "T9: no bundle in lib/ embeds com/google/gson apart from known exceptions"
+else
+    log_fail "T9: these bundles embed their own Gson copy:${gson_bundled}"
+fi
+
 print_summary; tc_exit_code
