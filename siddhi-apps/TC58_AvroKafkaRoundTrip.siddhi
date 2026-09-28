@@ -1,0 +1,45 @@
+@App:name('TC58_AvroKafkaRoundTrip')
+@App:description('HTTP -> Avro-mapped Kafka sink -> Avro-mapped Kafka source -> log')
+
+/*
+Tests: siddhi-map-avro sink and source mappers over Kafka binary messages,
+       with the bundled Avro (1.11.5 from siddhi-map-avro 2.2.6).
+Port : 8128
+Deps : Kafka (Docker Compose), Kafka OSGi jars in $SI_HOME/lib/
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8128/TC58_AvroKafkaRoundTrip/SweetInStream',
+        @map(type='json'))
+define stream SweetInStream (name string, amount double);
+
+@sink(type='kafka',
+      topic='tc58-avro',
+      bootstrap.servers='localhost:9092',
+      partition.no='0',
+      is.binary.message='true',
+      @map(type='avro',
+           schema.def="""{"type":"record","name":"sweet","namespace":"tc58","fields":[{"name":"name","type":"string"},{"name":"amount","type":"double"}]}"""))
+define stream SweetAvroOutStream (name string, amount double);
+
+@source(type='kafka',
+        topic.list='tc58-avro',
+        partition.no.list='0',
+        threading.option='single.thread',
+        group.id='tc58-group',
+        bootstrap.servers='localhost:9092',
+        is.binary.message='true',
+        @map(type='avro',
+             schema.def="""{"type":"record","name":"sweet","namespace":"tc58","fields":[{"name":"name","type":"string"},{"name":"amount","type":"double"}]}"""))
+define stream SweetAvroInStream (name string, amount double);
+
+@sink(type='log', prefix='[TC58-AVRO]')
+define stream SweetLogStream (name string, amount double);
+
+from SweetInStream
+select name, amount
+insert into SweetAvroOutStream;
+
+from SweetAvroInStream
+select name, amount
+insert into SweetLogStream;

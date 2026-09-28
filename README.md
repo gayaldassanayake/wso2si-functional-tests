@@ -9,6 +9,7 @@ A self-contained regression test suite for WSO2 Streaming Integrator (SI) 4.3.x 
 - **2 PostgreSQL CDC tests** (TC48, TC49) — listening mode via Debezium logical replication, and polling mode.
 - **1 Oracle LDAP naming test** (TC52) — RDBMS store on Oracle reached through a `jdbc:oracle:thin:@ldap://` URL.
 - **1 Kafka `deployment.yaml` config test** (TC56, standalone) — Kafka source/sink options set globally under `siddhi.extensions`.
+- **1 Avro over Kafka test** (TC58) — `siddhi-map-avro` sink and source mapping of binary Kafka messages.
 - **1 CDC listening test** (TC39) — MySQL CDC via Debezium binlog (INSERT/UPDATE/DELETE events).
 - **3 optional extension tests** (TC43, TC45, TC46) — Thrift DataBridge, RabbitMQ pass-through, Redis store. Each self-skips when the required SI extension JARs are absent.
 
@@ -294,6 +295,7 @@ TC08 uses Kafka (no HTTP port). TC11 uses CDC source. TC12 uses file source. TC3
 | TC50 | 8124 | JavaScript script function |
 | TC51 | 8125 | JavaScript `js:eval` |
 | TC52 | 8126 | Oracle store via LDAP naming |
+| TC58 | 8128 | Avro over Kafka (HTTP source) |
 
 ---
 
@@ -417,6 +419,21 @@ Checks: the consumer group `tc56-group` shows CLIENT-ID `tc56-cfgtest` (it shows
 SI_HOME=/path/to/wso2si-4.4.1 bash scripts/test_tc56_kafka_deployment_config.sh
 ```
 
+### Avro over Kafka Test (TC58)
+
+`siddhi-map-avro` embeds its own Avro and snappy-java, so a server-wide version bump doesn't reach them. TC58 exercises the mapper after they change (siddhi-map-avro 2.2.6: Avro 1.11.5, snappy-java 1.1.10.7). The embedded versions themselves are checked by TC53 T7.
+
+| TC | Script | Feature Area | External Deps |
+|---|---|---|---|
+| TC58 | `test_tc58_avro_kafka_roundtrip.sh` | `@map(type='avro')` Kafka sink and source with `is.binary.message='true'` | Kafka, Kafka client bundles in `lib/` |
+
+Checks: an HTTP event is published as Avro and decoded back by the Avro Kafka source; topic `tc58-avro` holds the exact Avro binary encoding of the record (not JSON); a record hand-encoded and produced with `kcat` is decoded; no Avro or class-loading errors are logged. Runs in the Kafka group; the app deploys itself.
+
+```bash
+./scripts/setup.sh --kafka
+SI_HOME=/path/to/wso2si-4.4.1 bash scripts/test_tc58_avro_kafka_roundtrip.sh
+```
+
 ### Core SI Runtime Tests (TC40–TC42, TC44, TC47, TC50–TC51, TC57)
 
 These run alongside TC01–TC18 as part of the standard core test run.
@@ -517,7 +534,7 @@ ${SI_HOME}/bin/server.sh
 
 ### With Kafka
 
-Adds TC08 (Kafka source + sink):
+Adds TC08 (Kafka source + sink) and TC58 (Avro over Kafka):
 
 ```bash
 ./scripts/setup.sh --kafka
