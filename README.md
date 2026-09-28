@@ -512,6 +512,15 @@ These tests deploy the chart to a live cluster with Envoy Gateway and assert rea
 
 ---
 
+### Manual HA Tests
+
+These need two nodes and a killed active node, so they are run by hand:
+
+| Procedure | Covers |
+|---|---|
+| [`manual-tests/ha-cron-trigger.md`](manual-tests/ha-cron-trigger.md) | Cron triggers across HA state changes (BNYMDMAPROD-220) |
+| [`manual-tests/ha-failover.md`](manual-tests/ha-failover.md) | Never both passive after failover (BNYMDMAPROD-198); one broken app doesn't block the others (BNYMDMAPROD-247) |
+
 ## Running Tests
 
 ### Core tests (no external infrastructure)
