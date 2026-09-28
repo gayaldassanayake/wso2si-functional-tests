@@ -329,6 +329,7 @@ tc_script() {
         TC56) echo "test_tc56_kafka_deployment_config.sh" ;;
         TC57) echo "test_tc57_cron_trigger_scheduler.sh" ;;
         TC58) echo "test_tc58_avro_kafka_roundtrip.sh" ;;
+        TC59) echo "test_tc59_keyword_attribute_names.sh" ;;
         *) echo "" ;;
     esac
 }
@@ -391,6 +392,7 @@ tc_label() {
         TC56) echo "Kafka source/sink options from deployment.yaml [standalone, requires Kafka]" ;;
         TC57) echo "Cron triggers — same trigger id in two apps, Quartz scheduler shutdown when idle" ;;
         TC58) echo "Avro sink/source mapping over Kafka — round trip, wire encoding, external record [requires Kafka]" ;;
+        TC59) echo "Siddhi keywords (offset, in, per, at, set) as attribute names" ;;
         TC48) echo "PostgreSQL CDC listening mode — INSERT/UPDATE/DELETE via Debezium logical replication [requires PostgreSQL]" ;;
         TC49) echo "PostgreSQL CDC polling mode [requires PostgreSQL]" ;;
         *) echo "Unknown" ;;
@@ -398,7 +400,7 @@ tc_label() {
 }
 
 # Core tests (always run unless specific TCs are given)
-CORE_TCS=(TC01 TC02 TC03 TC04 TC05 TC06 TC09 TC10 TC12 TC13 TC14 TC15 TC16 TC17 TC18 TC40 TC41 TC42 TC44 TC47 TC50 TC51 TC57)
+CORE_TCS=(TC01 TC02 TC03 TC04 TC05 TC06 TC09 TC10 TC12 TC13 TC14 TC15 TC16 TC17 TC18 TC40 TC41 TC42 TC44 TC47 TC50 TC51 TC57 TC59)
 
 # Optional infra-dependent tests
 KAFKA_TCS=(TC08 TC58)

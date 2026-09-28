@@ -1,0 +1,29 @@
+@App:name('TC59_KeywordAttributeNames')
+@App:description('Siddhi keywords as attribute names (EIINTERNAL-1239)')
+
+/*
+Tests: offset, in, per, at and set are keywords in SiddhiQL.g4 but must still be usable as attribute names
+       in streams, filters, selections, tables and on-demand queries.
+Port : 8129
+Deps : none
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8129/TC59_KeywordAttributeNames/KeywordStream',
+        @map(type='json'))
+define stream KeywordStream (offset int, name string, in string, per int, at long, set string);
+
+@sink(type='log', prefix='[TC59]')
+define stream KeywordOutStream (offset int, name string, in string, per int, at long, set string);
+
+@PrimaryKey('offset')
+define table KeywordTable (offset int, name string);
+
+from KeywordStream[offset > 0]
+select offset, name, in, per, at, set
+insert into KeywordOutStream;
+
+from KeywordStream
+select offset, name
+update or insert into KeywordTable
+    on KeywordTable.offset == offset;
