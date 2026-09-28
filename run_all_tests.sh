@@ -30,6 +30,8 @@
 #      TC35 (server lifecycle) is standalone — run it separately before starting SI
 #   5. TC56 (Kafka deployment.yaml config) is standalone — run it with SI stopped:
 #      SI_HOME=... bash scripts/test_tc56_kafka_deployment_config.sh
+#   6. TC60 (Oracle error store) is standalone — run it with SI stopped:
+#      SI_HOME=... bash scripts/test_tc60_oracle_error_store.sh
 
 set -euo pipefail
 
@@ -330,6 +332,7 @@ tc_script() {
         TC57) echo "test_tc57_cron_trigger_scheduler.sh" ;;
         TC58) echo "test_tc58_avro_kafka_roundtrip.sh" ;;
         TC59) echo "test_tc59_keyword_attribute_names.sh" ;;
+        TC60) echo "test_tc60_oracle_error_store.sh" ;;
         *) echo "" ;;
     esac
 }
@@ -393,6 +396,7 @@ tc_label() {
         TC57) echo "Cron triggers — same trigger id in two apps, Quartz scheduler shutdown when idle" ;;
         TC58) echo "Avro sink/source mapping over Kafka — round trip, wire encoding, external record [requires Kafka]" ;;
         TC59) echo "Siddhi keywords (offset, in, per, at, set) as attribute names" ;;
+        TC60) echo "Error store on Oracle — create, store, list, replay, purge [standalone, requires Oracle]" ;;
         TC48) echo "PostgreSQL CDC listening mode — INSERT/UPDATE/DELETE via Debezium logical replication [requires PostgreSQL]" ;;
         TC49) echo "PostgreSQL CDC polling mode [requires PostgreSQL]" ;;
         *) echo "Unknown" ;;

@@ -1,0 +1,23 @@
+@App:name('TC60_ErrorStoreOracle')
+@App:description('Sink errors stored in an Oracle error store (BNYMDMAPROD-86)')
+
+/*
+Tests: DBErrorStore creates SIDDHI_ERROR_STORE_TABLE on Oracle (identity id column) and stores
+       events whose sink failed; the entries are listed, replayed and purged through /error-handler.
+Port : 8130 (source); the sink targets 8131, where nothing listens until TC60 deploys TC60_ErrorStoreReceiver
+Deps : Oracle (./scripts/setup.sh --oracle-ldap), ojdbc11 bundle in $SI_HOME/lib/, deployment.yaml patched by TC60
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8130/TC60_ErrorStoreOracle/OrderStream',
+        @map(type='json'))
+define stream OrderStream (orderId string, amount double);
+
+@sink(type='http', publisher.url='http://localhost:8131/TC60_ErrorStoreReceiver/ReceiveStream',
+      method='POST', on.error='STORE',
+      @map(type='json'))
+define stream ForwardStream (orderId string, amount double);
+
+from OrderStream
+select orderId, amount
+insert into ForwardStream;

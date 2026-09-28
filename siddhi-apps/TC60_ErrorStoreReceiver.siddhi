@@ -1,0 +1,14 @@
+@App:name('TC60_ErrorStoreReceiver')
+@App:description('Replay target for TC60_ErrorStoreOracle')
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8131/TC60_ErrorStoreReceiver/ReceiveStream',
+        @map(type='json'))
+define stream ReceiveStream (orderId string, amount double);
+
+@sink(type='log', prefix='[TC60-RECV]')
+define stream ReceivedLogStream (orderId string, amount double);
+
+from ReceiveStream
+select orderId, amount
+insert into ReceivedLogStream;

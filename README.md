@@ -297,6 +297,7 @@ TC08 uses Kafka (no HTTP port). TC11 uses CDC source. TC12 uses file source. TC3
 | TC52 | 8126 | Oracle store via LDAP naming |
 | TC58 | 8128 | Avro over Kafka (HTTP source) |
 | TC59 | 8129 | Keywords as attribute names |
+| TC60 | 8130 | Oracle error store (HTTP source) + receiver 8131 |
 
 ---
 
@@ -418,6 +419,23 @@ Checks: the consumer group `tc56-group` shows CLIENT-ID `tc56-cfgtest` (it shows
 ./scripts/setup.sh --kafka
 # with SI running once: bin/extension-installer.sh install kafka, then stop SI
 SI_HOME=/path/to/wso2si-4.4.1 bash scripts/test_tc56_kafka_deployment_config.sh
+```
+
+### Oracle Error Store Test (TC60)
+
+Covers BNYMDMAPROD-86. The error store must work on Oracle 12c+. Listing and purge also need carbon-analytics `542eee502b`, which stores `timestamp` as `NUMBER(19)` instead of `LONG` (ORA-17027 on list, ORA-00997 on purge).
+
+TC60 is **standalone**: it needs SI stopped, enables `error.store` with an Oracle `ERROR_STORE_DB` datasource in `deployment.yaml`, starts SI, and restores `deployment.yaml` and stops SI on exit.
+
+| TC | Script | Feature Area | External Deps |
+|---|---|---|---|
+| TC60 | `test_tc60_oracle_error_store.sh` | `DBErrorStore` on Oracle, HTTP sink `on.error='STORE'`, `/error-handler` API | Oracle, ojdbc11 bundle in `lib/` (STANDALONE) |
+
+Checks: the table is created on the first stored error; entries get increasing identity ids; count, list and replay (to a receiver app) work; the table survives a restart; purge by retention empties it.
+
+```bash
+./scripts/setup.sh --oracle-ldap
+SI_HOME=/path/to/wso2si-4.4.1 bash scripts/test_tc60_oracle_error_store.sh
 ```
 
 ### Avro over Kafka Test (TC58)
