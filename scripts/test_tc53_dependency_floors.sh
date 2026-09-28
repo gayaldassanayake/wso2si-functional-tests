@@ -193,4 +193,24 @@ else
     fi
 fi
 
+log_info "T12: extension installer's Kafka jars at or above ${KAFKA_CLIENTS_MIN_VERSION}"
+ext_deps="${TOOLS_PACK_HOME}/wso2/server/resources/extensionsInstaller/extensionDependencies.json"
+if [[ ! -f "${ext_deps}" ]]; then
+    log_fail "T12: ${ext_deps} not found"
+else
+    while read -r dep version; do
+        if [[ "${version}" != "none" ]] && version_ge "${version}" "${KAFKA_CLIENTS_MIN_VERSION}"; then
+            log_pass "T12: installer list has ${dep} ${version}"
+        else
+            log_fail "T12: installer list has ${dep} ${version}, below ${KAFKA_CLIENTS_MIN_VERSION}"
+        fi
+    done < <(python3 - "${ext_deps}" <<'EOF2'
+import json, sys
+deps = {d['name']: d['version'] for d in json.load(open(sys.argv[1]))['kafka']['dependencies']}
+for name in ('kafka-clients', 'kafka-2.13'):
+    print(name, deps.get(name, 'none'))
+EOF2
+)
+fi
+
 print_summary; tc_exit_code
