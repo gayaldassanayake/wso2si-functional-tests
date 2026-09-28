@@ -1,0 +1,45 @@
+@App:name('TC61_TableStatsMarkIn')
+@App:description('RDBMS table operations with statistics on while operations fail (BNYMDMAPROD-231)')
+@app:statistics(reporter='console', interval='5')
+
+/*
+Tests: a table operation that throws (duplicate key, database down) must still call markOut, otherwise the
+       next event on that thread fails with "MarkIn consecutively called without calling markOut".
+Port : 8132
+Deps : MySQL JDBC driver in $SI_HOME/lib/; TC61 starts its own MySQL container on 3309
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8132/TC61_TableStatsMarkIn/OpStream',
+        @map(type='json'))
+define stream OpStream (op string, id string, qty int);
+
+@store(type='rdbms',
+       jdbc.url='jdbc:mysql://localhost:3309/tc61?useSSL=false&allowPublicKeyRetrieval=true',
+       username='sitest',
+       password='sitest123',
+       jdbc.driver.name='com.mysql.cj.jdbc.Driver',
+       table.name='TC61_ITEMS')
+@PrimaryKey('id')
+define table ItemTable (id string, qty int);
+
+@sink(type='log', prefix='[TC61]')
+define stream AckStream (op string, id string);
+
+from OpStream[op == 'insert']
+select id, qty
+insert into ItemTable;
+
+from OpStream[op == 'upsert']
+select id, qty
+update or insert into ItemTable
+    on ItemTable.id == id;
+
+from OpStream[op == 'delete']
+select id
+delete ItemTable
+    on ItemTable.id == id;
+
+from OpStream[op == 'done']
+select op, id
+insert into AckStream;

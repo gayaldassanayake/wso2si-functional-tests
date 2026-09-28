@@ -298,6 +298,7 @@ TC08 uses Kafka (no HTTP port). TC11 uses CDC source. TC12 uses file source. TC3
 | TC58 | 8128 | Avro over Kafka (HTTP source) |
 | TC59 | 8129 | Keywords as attribute names |
 | TC60 | 8130 | Oracle error store (HTTP source) + receiver 8131 |
+| TC61 | 8132 | Table statistics (HTTP source); own MySQL on 3309 |
 
 ---
 
@@ -365,6 +366,16 @@ TC39 requires MySQL with Debezium-compatible binlog privileges (granted automati
 | TC | Script | Feature Area | External Deps |
 |---|---|---|---|
 | TC39 | `test_tc39_cdc_listening.sh` | CDC listening mode (Debezium binlog) INSERT/UPDATE/DELETE | MySQL |
+
+### Table Statistics Test (TC61)
+
+Covers BNYMDMAPROD-231. With statistics on, a table operation that throws must still close its latency tracker; otherwise the next event on that thread fails with `MarkIn consecutively called without calling markOut`. TC61 starts its own MySQL container (`si-test-mysql-tc61`, port 3309) because it stops the database mid-test. It runs in the MySQL group.
+
+| TC | Script | Feature Area | External Deps |
+|---|---|---|---|
+| TC61 | `test_tc61_table_stats_markin.sh` | `@app:statistics` with an RDBMS `@PrimaryKey` table: inserts, duplicate inserts, upserts, deletes, and a MySQL outage | MySQL JDBC driver in `lib/`, Docker |
+
+Checks: statistics are enabled; duplicate-key failures occur; no `MarkIn consecutively` error is logged; writes resume after the outage; the app still processes events and the last upsert lands.
 
 ### PostgreSQL CDC Tests (TC48, TC49)
 
