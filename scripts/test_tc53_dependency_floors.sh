@@ -213,4 +213,20 @@ EOF2
 )
 fi
 
+log_info "T13: siddhi-map-avro embeds none of the old schema registry HTTP client libraries"
+avro_jars=("${TOOLS_PACK_HOME}"/lib/siddhi-map-avro-*.jar)
+if [[ ! -f "${avro_jars[0]}" ]]; then
+    log_fail "T13: no siddhi-map-avro jar in lib/"
+else
+    # feign, okhttp 3.6.0, okio 1.11.0 (CVE-2023-3635) and org.json 20140107 (CVE-2022-45688, CVE-2023-5072)
+    # were embedded for a feign client that no code path used.
+    embedded=$(unzip -Z1 "${avro_jars[0]}" 2>/dev/null | grep -E '\.class$' \
+        | grep -oE '^(feign|okhttp3|okio|org/json)/' | sort -u | sed 's|/$||' | tr '\n' ' ' || true)
+    if [[ -z "${embedded}" ]]; then
+        log_pass "T13: $(basename "${avro_jars[0]}") embeds no feign, okhttp3, okio or org.json classes"
+    else
+        log_fail "T13: $(basename "${avro_jars[0]}") embeds: ${embedded}"
+    fi
+fi
+
 print_summary; tc_exit_code
