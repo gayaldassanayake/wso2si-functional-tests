@@ -1,0 +1,25 @@
+@App:name('TC64_AvroSchemaRegistryMissing')
+@App:description('Avro Kafka source whose schema id does not exist in the Schema Registry')
+
+/*
+Tests: a schema.id the registry doesn't have must fail deployment with the registry's "not found"
+       error, not with a class-loading error.
+Deps : Kafka and Schema Registry (Docker Compose). TC64 replaces @MISSING_ID@ and @RUN_ID@.
+*/
+
+@source(type='kafka',
+        topic.list='tc64-in-@RUN_ID@',
+        partition.no.list='0',
+        threading.option='single.thread',
+        group.id='tc64-missing-@RUN_ID@',
+        bootstrap.servers='localhost:9092',
+        is.binary.message='true',
+        @map(type='avro', schema.registry='http://localhost:8081', schema.id='@MISSING_ID@'))
+define stream PaymentMissingSchemaStream (name string, amount double);
+
+@sink(type='log', prefix='[TC64-MISSING]')
+define stream MissingSchemaLogStream (name string, amount double);
+
+from PaymentMissingSchemaStream
+select name, amount
+insert into MissingSchemaLogStream;

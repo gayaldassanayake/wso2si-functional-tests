@@ -1,0 +1,63 @@
+@App:name('TC64_AvroSchemaRegistry')
+@App:description('Avro Kafka sink and source that resolve their schema from a Confluent Schema Registry')
+
+/*
+Tests: siddhi-map-avro with schema.registry and schema.id, which fetch the schema through the embedded
+       Confluent client. The registry source decodes the Confluent wire format (magic byte, schema id,
+       Avro body); the registry sink publishes plain Avro binary.
+Port : 8134
+Deps : Kafka and Schema Registry (Docker Compose), Kafka client bundles in $SI_HOME/lib/.
+       TC64 registers the schema and replaces @SCHEMA_ID@ and @RUN_ID@ before deploying.
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8134/TC64_AvroSchemaRegistry/PaymentInStream',
+        @map(type='json'))
+define stream PaymentInStream (name string, amount double);
+
+@sink(type='kafka',
+      topic='tc64-out-@RUN_ID@',
+      bootstrap.servers='localhost:9092',
+      partition.no='0',
+      is.binary.message='true',
+      @map(type='avro', schema.registry='http://localhost:8081', schema.id='@SCHEMA_ID@'))
+define stream PaymentRegistryOutStream (name string, amount double);
+
+@source(type='kafka',
+        topic.list='tc64-out-@RUN_ID@',
+        partition.no.list='0',
+        threading.option='single.thread',
+        group.id='tc64-out-@RUN_ID@',
+        bootstrap.servers='localhost:9092',
+        is.binary.message='true',
+        @map(type='avro',
+             schema.def="""{"type":"record","name":"payment","namespace":"tc64","fields":[{"name":"name","type":"string"},{"name":"amount","type":"double"}]}"""))
+define stream PaymentPlainInStream (name string, amount double);
+
+@source(type='kafka',
+        topic.list='tc64-in-@RUN_ID@',
+        partition.no.list='0',
+        threading.option='single.thread',
+        group.id='tc64-in-@RUN_ID@',
+        bootstrap.servers='localhost:9092',
+        is.binary.message='true',
+        @map(type='avro', schema.registry='http://localhost:8081', schema.id='@SCHEMA_ID@'))
+define stream PaymentRegistryInStream (name string, amount double);
+
+@sink(type='log', prefix='[TC64-SR-OUT]')
+define stream SinkRoundTripLogStream (name string, amount double);
+
+@sink(type='log', prefix='[TC64-SR-IN]')
+define stream RegistrySourceLogStream (name string, amount double);
+
+from PaymentInStream
+select name, amount
+insert into PaymentRegistryOutStream;
+
+from PaymentPlainInStream
+select name, amount
+insert into SinkRoundTripLogStream;
+
+from PaymentRegistryInStream
+select name, amount
+insert into RegistrySourceLogStream;

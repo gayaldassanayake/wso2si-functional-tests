@@ -9,7 +9,7 @@ A self-contained regression test suite for WSO2 Streaming Integrator (SI) 4.3.x 
 - **2 PostgreSQL CDC tests** (TC48, TC49) — listening mode via Debezium logical replication, and polling mode.
 - **1 Oracle LDAP naming test** (TC52) — RDBMS store on Oracle reached through a `jdbc:oracle:thin:@ldap://` URL.
 - **1 Kafka `deployment.yaml` config test** (TC56, standalone) — Kafka source/sink options set globally under `siddhi.extensions`.
-- **1 Avro over Kafka test** (TC58) — `siddhi-map-avro` sink and source mapping of binary Kafka messages.
+- **2 Avro over Kafka tests** (TC58, TC64) — `siddhi-map-avro` sink and source mapping of binary Kafka messages, with an inline schema and with a Confluent Schema Registry.
 - **1 CDC listening test** (TC39) — MySQL CDC via Debezium binlog (INSERT/UPDATE/DELETE events).
 - **3 optional extension tests** (TC43, TC45, TC46) — Thrift DataBridge, RabbitMQ pass-through, Redis store. Each self-skips when the required SI extension JARs are absent.
 
@@ -298,6 +298,7 @@ TC08 uses Kafka (no HTTP port). TC11 uses CDC source. TC12 uses file source. TC3
 | TC58 | 8128 | Avro over Kafka (HTTP source) |
 | TC59 | 8129 | Keywords as attribute names |
 | TC63 | 8133 | File search with a dynamic regex |
+| TC64 | 8134 | Avro with a Confluent Schema Registry (HTTP source) |
 | TC60 | 8130 | Oracle error store (HTTP source) + receiver 8131 |
 | TC61 | 8132 | Table statistics (HTTP source); own MySQL on 3309 |
 
@@ -467,19 +468,23 @@ Checks: 100 events sent at 1/s over at least two persistence cycles are each emi
 SI_HOME=/path/to/wso2si-4.4.1 bash scripts/test_tc62_kafka_state_persistence.sh
 ```
 
-### Avro over Kafka Test (TC58)
+### Avro over Kafka Tests (TC58, TC64)
 
 `siddhi-map-avro` embeds its own Avro and snappy-java, so a server-wide version bump doesn't reach them. TC58 exercises the mapper after they change (siddhi-map-avro 2.2.6: Avro 1.11.5, snappy-java 1.1.10.7). The embedded versions themselves are checked by TC53 T7.
 
 | TC | Script | Feature Area | External Deps |
 |---|---|---|---|
 | TC58 | `test_tc58_avro_kafka_roundtrip.sh` | `@map(type='avro')` Kafka sink and source with `is.binary.message='true'` | Kafka, Kafka client bundles in `lib/` |
+| TC64 | `test_tc64_avro_schema_registry.sh` | `@map(type='avro', schema.registry=…, schema.id=…)` Kafka source and sink | Kafka, Schema Registry, Kafka client bundles in `lib/` |
 
 Checks: an HTTP event is published as Avro and decoded back by the Avro Kafka source; topic `tc58-avro` holds the exact Avro binary encoding of the record (not JSON); a record hand-encoded and produced with `kcat` is decoded; no Avro or class-loading errors are logged. Runs in the Kafka group; the app deploys itself.
+
+TC64 covers the schema-registry path, where siddhi-map-avro fetches the schema through its embedded Confluent client. Each run registers its own subject and uses its own topics, then replaces `@SCHEMA_ID@` and `@RUN_ID@` in the app before deploying it. Checks: the app deploys with the registered schema id; a record in the Confluent wire format (magic byte, schema id, Avro body) produced with `kcat` is decoded by the registry source; an HTTP event sent through the registry sink lands on the topic as exactly its plain Avro encoding and is decoded by a `schema.def` source; an unknown schema id fails deployment with the registry's "Schema … not found" error; no class-loading errors are logged. Runs in the Kafka group.
 
 ```bash
 ./scripts/setup.sh --kafka
 SI_HOME=/path/to/wso2si-4.4.1 bash scripts/test_tc58_avro_kafka_roundtrip.sh
+SI_HOME=/path/to/wso2si-4.4.1 bash scripts/test_tc64_avro_schema_registry.sh
 ```
 
 ### Core SI Runtime Tests (TC40–TC42, TC44, TC47, TC50–TC51, TC57, TC59, TC63)
@@ -593,7 +598,7 @@ ${SI_HOME}/bin/server.sh
 
 ### With Kafka
 
-Adds TC08 (Kafka source + sink) and TC58 (Avro over Kafka):
+Adds TC08 (Kafka source + sink), TC58 (Avro over Kafka) and TC64 (Avro with a Schema Registry). `setup.sh --kafka` also starts the Schema Registry:
 
 ```bash
 ./scripts/setup.sh --kafka

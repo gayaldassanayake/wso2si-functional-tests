@@ -338,6 +338,7 @@ tc_script() {
         TC61) echo "test_tc61_table_stats_markin.sh" ;;
         TC62) echo "test_tc62_kafka_state_persistence.sh" ;;
         TC63) echo "test_tc63_file_search_dynamic_regex.sh" ;;
+        TC64) echo "test_tc64_avro_schema_registry.sh" ;;
         *) echo "" ;;
     esac
 }
@@ -405,6 +406,7 @@ tc_label() {
         TC61) echo "RDBMS table statistics while operations fail — no MarkIn errors [requires MySQL driver, Docker]" ;;
         TC62) echo "Kafka source under state persistence — no duplicates across cycles and restart [standalone, requires Kafka]" ;;
         TC63) echo "file:search uses each event's regex when it comes from an attribute" ;;
+        TC64) echo "Avro mapping with a Confluent Schema Registry — wire-format source, registry sink, unknown id [requires Kafka]" ;;
         TC48) echo "PostgreSQL CDC listening mode — INSERT/UPDATE/DELETE via Debezium logical replication [requires PostgreSQL]" ;;
         TC49) echo "PostgreSQL CDC polling mode [requires PostgreSQL]" ;;
         *) echo "Unknown" ;;
@@ -415,7 +417,7 @@ tc_label() {
 CORE_TCS=(TC01 TC02 TC03 TC04 TC05 TC06 TC09 TC10 TC12 TC13 TC14 TC15 TC16 TC17 TC18 TC40 TC41 TC42 TC44 TC47 TC50 TC51 TC57 TC59 TC63)
 
 # Optional infra-dependent tests
-KAFKA_TCS=(TC08 TC58)
+KAFKA_TCS=(TC08 TC58 TC64)
 MYSQL_TCS=(TC07 TC11 TC39 TC61)
 RABBITMQ_TCS=(TC45)
 REDIS_TCS=(TC46)
