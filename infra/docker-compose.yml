@@ -4,7 +4,7 @@ name: si-functional-tests
 # WSO2 SI Test Suite Infrastructure
 # Usage:
 #   All services:  docker compose up -d
-#   Kafka only:    docker compose up -d zookeeper kafka
+#   Kafka only:    docker compose up -d zookeeper kafka schema-registry
 #   MySQL only:    docker compose up -d mysql
 
 services:
@@ -31,6 +31,7 @@ services:
         condition: service_healthy
     ports:
       - "9092:9092"
+      - "8081:8081"   # schema-registry shares this network namespace
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -47,6 +48,25 @@ services:
       timeout: 10s
       retries: 15
       start_period: 40s
+
+  # Kafka advertises only localhost:9092, so the registry runs in Kafka's network namespace.
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.5.0
+    container_name: si-test-schema-registry
+    network_mode: "service:kafka"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: localhost
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://localhost:9092
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8081/subjects"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 20s
 
   mysql:
     image: mysql:8.0.32

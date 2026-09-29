@@ -3,7 +3,7 @@
 #
 # Usage:
 #   ./scripts/teardown.sh               # Remove all TC apps from SI (leave Docker running)
-#   ./scripts/teardown.sh --kafka       # Also stop Kafka + Zookeeper
+#   ./scripts/teardown.sh --kafka       # Also stop Kafka, Zookeeper and Schema Registry
 #   ./scripts/teardown.sh --mysql       # Also stop MySQL
 #   ./scripts/teardown.sh --rabbitmq    # Also stop RabbitMQ
 #   ./scripts/teardown.sh --redis       # Also stop Redis
@@ -65,7 +65,7 @@ fi
 # ─── Stop Docker Compose services ────────────────────────────────────────────
 SERVICES=()
 if [[ "$STOP_KAFKA" == "true" ]]; then
-    SERVICES+=("kafka" "zookeeper")
+    SERVICES+=("schema-registry" "kafka" "zookeeper")
 fi
 if [[ "$STOP_MYSQL" == "true" ]]; then
     SERVICES+=("mysql")

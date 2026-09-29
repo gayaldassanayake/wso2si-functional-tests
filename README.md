@@ -104,7 +104,7 @@ wso2si-functional-tests/
 │   └── TC42_GrpcSender.siddhi
 │
 ├── infra/
-│   ├── docker-compose.yml            ← Kafka + Zookeeper + MySQL 8.0 + PostgreSQL 16
+│   ├── docker-compose.yml            ← Kafka + Zookeeper + Schema Registry + MySQL 8.0 + PostgreSQL 16
 │   ├── mysql-init/
 │   │   └── 01_init.sql
 │   └── postgres-init/
@@ -750,7 +750,7 @@ You can also run a test script directly (apps must already be deployed):
 ### Starting Docker services
 
 ```bash
-# Start Kafka + Zookeeper only
+# Start Kafka + Zookeeper + Schema Registry (host port 8081) only
 ./scripts/setup.sh --kafka
 
 # Start MySQL only

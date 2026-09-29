@@ -72,6 +72,14 @@ require_kafka_running() {
     require_docker_container "${KAFKA_CONTAINER}"
 }
 
+require_schema_registry_running() {
+    require_docker_container "${SCHEMA_REGISTRY_CONTAINER}"
+    if ! curl -sf -m 5 "${SCHEMA_REGISTRY_URL}/subjects" >/dev/null; then
+        echo -e "${RED}[ERROR]${NC} Schema Registry is not reachable at ${SCHEMA_REGISTRY_URL}. Run: ./scripts/setup.sh --kafka"
+        exit 1
+    fi
+}
+
 require_rabbitmq_running() {
     require_docker_container "${RABBITMQ_CONTAINER}"
 }

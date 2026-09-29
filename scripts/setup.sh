@@ -57,7 +57,7 @@ fi
 # ─── Start services ──────────────────────────────────────────────────────────
 SERVICES=()
 if [[ "$WITH_KAFKA" == "true" ]]; then
-    SERVICES+=("zookeeper" "kafka")
+    SERVICES+=("zookeeper" "kafka" "schema-registry")
 fi
 if [[ "$WITH_MYSQL" == "true" ]]; then
     SERVICES+=("mysql")
@@ -107,6 +107,7 @@ wait_healthy() {
 if [[ "$WITH_KAFKA" == "true" ]]; then
     wait_healthy "si-test-zookeeper"
     wait_healthy "si-test-kafka"
+    wait_healthy "${SCHEMA_REGISTRY_CONTAINER}"
 fi
 if [[ "$WITH_MYSQL" == "true" ]]; then
     wait_healthy "si-test-mysql"
