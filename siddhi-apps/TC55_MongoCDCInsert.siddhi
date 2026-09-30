@@ -9,12 +9,12 @@
         topic.prefix='TC55MongoCDCInsert',
         operation='insert',
         @map(type='keyvalue'))
-define stream MongoInsertStream (recordId string, name string, tier string);
+define stream MongoInsertStream (recordId string, name string, tier string, price double);
 
 @sink(type='log', prefix='[TC55-INSERT]')
-define stream MongoInsertLogStream (recordId string, name string, tier string);
+define stream MongoInsertLogStream (recordId string, name string, tier string, price double);
 
 @info(name='TC55-log-insert')
 from MongoInsertStream
-select recordId, name, tier
+select recordId, name, tier, price
 insert into MongoInsertLogStream;

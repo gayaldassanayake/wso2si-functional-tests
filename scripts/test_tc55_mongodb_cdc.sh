@@ -9,9 +9,13 @@ require_si_running
 require_mongodb_running
 
 require_cdc_installer_artifacts() {
-    local pattern
+    local pattern cdc_jars
+    cdc_jars=$(ls "${SI_HOME}/lib/"siddhi-io-cdc-*.jar 2>/dev/null)
+    if [[ "$(echo "${cdc_jars}" | grep -c .)" -ne 1 || "${cdc_jars}" != *"siddhi-io-cdc-${CDC_VERSION}.jar" ]]; then
+        log_fail "Expected exactly one siddhi-io-cdc-${CDC_VERSION}.jar in ${SI_HOME}/lib, found: ${cdc_jars:-none}"
+        return 1
+    fi
     for pattern in \
-        'siddhi-io-cdc-2.2.0.jar' \
         'mongodb_driver_sync_5.11.1_*.jar' \
         'mongodb_driver_core_5.11.1_*.jar' \
         'bson_5.11.1_*.jar' \
@@ -84,8 +88,8 @@ deploy_cdc_app "${INSERT_APP}" "TC55_MongoCDCInsert" || { print_summary; exit 1;
 
 log_info "T3: Insert a MongoDB document and receive its change-stream event"
 baseline=$(log_lines)
-mongodb_eval "db.getCollection('${MONGO_COLLECTION}').insertOne({recordId: 'C1', name: 'Ada', tier: 'gold'})" >/dev/null
-if ! assert_log_since "${baseline}" "T3: insert change event is logged" '\[TC55-INSERT\].*Ada.*gold' 45; then
+mongodb_eval "db.getCollection('${MONGO_COLLECTION}').insertOne({recordId: 'C1', name: 'Ada', tier: 'gold', price: 2.5})" >/dev/null
+if ! assert_log_since "${baseline}" "T3: insert change event is logged with its decimal field" '\[TC55-INSERT\].*Ada.*gold.*2\.5' 45; then
     print_summary
     exit 1
 fi

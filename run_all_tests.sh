@@ -153,7 +153,7 @@ _has_redis_extension() {
 
 _has_mongodb_installer_artifacts() {
     ls "${SI_HOME}/lib/"siddhi-store-mongodb-*.jar 2>/dev/null | grep -q . &&
-    ls "${SI_HOME}/lib/"siddhi-io-cdc-2.2.0.jar 2>/dev/null | grep -q . &&
+    ls "${SI_HOME}/lib/"siddhi-io-cdc-${CDC_VERSION}.jar 2>/dev/null | grep -q . &&
     ls "${SI_HOME}/lib/"mongodb_driver_sync_5.11.1_*.jar 2>/dev/null | grep -q . &&
     ls "${SI_HOME}/lib/"mongodb_driver_core_5.11.1_*.jar 2>/dev/null | grep -q . &&
     ls "${SI_HOME}/lib/"bson_5.11.1_*.jar 2>/dev/null | grep -q . &&
