@@ -229,4 +229,15 @@ else
     fi
 fi
 
+log_info "T14: commons-beanutils at or above ${BEANUTILS_MIN_VERSION}, no ServiceMix beanutils bundle"
+assert_floor "T14: commons-beanutils" '^org\.apache\.commons\.commons-beanutils$' "${BEANUTILS_MIN_VERSION}"
+servicemix=$(bundles_matching '^org\.apache\.servicemix\.bundles\.commons-beanutils$' | tr '\n' ' ')
+if [[ -z "${servicemix}" ]]; then
+    log_pass "T14: no ServiceMix commons-beanutils bundle installed"
+else
+    # The ServiceMix bundle repackages commons-beanutils 1.8.3 (CVE-2014-0114, CVE-2019-10086, CVE-2025-48734)
+    # under coordinates that vulnerability scanners don't map to upstream.
+    log_fail "T14: ServiceMix commons-beanutils installed: ${servicemix}"
+fi
+
 print_summary; tc_exit_code
