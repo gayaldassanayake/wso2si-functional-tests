@@ -44,7 +44,7 @@ _wait_pg_streaming() {
     local baseline="$1"
     local elapsed=0
     until tail -n +"$((baseline + 1))" "${SI_LOG}" 2>/dev/null \
-          | grep -qE 'ChangeEventSourceCoordinator.*Starting streaming|PostgresStreamingChangeEventSource.*Processing messages'; do
+          | grep -E 'ChangeEventSourceCoordinator.*Starting streaming|PostgresStreamingChangeEventSource.*Processing messages' >/dev/null; do
         sleep 1; (( elapsed++ )) || true
         if (( elapsed >= 45 )); then
             log_fail "Debezium logical replication not streaming within 45s"
@@ -57,28 +57,30 @@ _wait_pg_streaming() {
 # ── INSERT ───────────────────────────────────────────────────────────────────
 log_info "T2: TC48 INSERT app started (Debezium connector initialises)"
 undeploy_app "TC48_CDCPgInsert.siddhi"
+mark_log
 _BASELINE=$(wc -l < "${SI_LOG}" 2>/dev/null || echo 0)
 deploy_app   "TC48_CDCPgInsert.siddhi"
-assert_log_contains "T2: TC48 INSERT app started" 'TC48_CDCPgInsert.*deployed successfully' 60
+assert_app_deployed "T2: TC48 INSERT app started" TC48_CDCPgInsert 60
 _wait_pg_streaming "$_BASELINE"
 
 log_info "T3: INSERT — CDC listening captures new row"
 postgres_query "INSERT INTO cdc_listen_table_pg (order_id, product, quantity, price) VALUES (1, 'Apple', 5, 2.50);" >/dev/null
-assert_log_contains "T3: CDC captures INSERT (Apple)" '\[TC48-INSERT\].*Apple' 30
+assert_log_contains "T3: CDC captures INSERT (Apple)" '\[TC48-INSERT\].*data=\[1, Apple, 5, 2\.5\]' 30
 
 undeploy_app "TC48_CDCPgInsert.siddhi"
 
 # ── UPDATE ───────────────────────────────────────────────────────────────────
 log_info "T4: TC48 UPDATE app started (Debezium connector initialises)"
 undeploy_app "TC48_CDCPgUpdate.siddhi"
+mark_log
 _BASELINE=$(wc -l < "${SI_LOG}" 2>/dev/null || echo 0)
 deploy_app   "TC48_CDCPgUpdate.siddhi"
-assert_log_contains "T4: TC48 UPDATE app started" 'TC48_CDCPgUpdate.*deployed successfully' 60
+assert_app_deployed "T4: TC48 UPDATE app started" TC48_CDCPgUpdate 60
 _wait_pg_streaming "$_BASELINE"
 
 log_info "T5: UPDATE — CDC listening captures row change"
 postgres_query "UPDATE cdc_listen_table_pg SET quantity=20, price=3.00 WHERE order_id=1;" >/dev/null
-assert_log_contains "T5: CDC captures UPDATE (quantity=20)" '\[TC48-UPDATE\].*20' 30
+assert_log_contains "T5: CDC captures UPDATE (quantity=20)" '\[TC48-UPDATE\].*data=\[1, Apple, 20, 3\.0\]' 30
 
 undeploy_app "TC48_CDCPgUpdate.siddhi"
 
@@ -87,28 +89,30 @@ undeploy_app "TC48_CDCPgUpdate.siddhi"
 # arrive populated; with the default identity they would be null here.
 log_info "T6: TC48 DELETE app started (Debezium connector initialises)"
 undeploy_app "TC48_CDCPgDelete.siddhi"
+mark_log
 _BASELINE=$(wc -l < "${SI_LOG}" 2>/dev/null || echo 0)
 deploy_app   "TC48_CDCPgDelete.siddhi"
-assert_log_contains "T6: TC48 DELETE app started" 'TC48_CDCPgDelete.*deployed successfully' 60
+assert_app_deployed "T6: TC48 DELETE app started" TC48_CDCPgDelete 60
 _wait_pg_streaming "$_BASELINE"
 
 log_info "T7: DELETE — CDC listening captures row removal with before-image"
 postgres_query "DELETE FROM cdc_listen_table_pg WHERE order_id=1;" >/dev/null
-assert_log_contains "T7: CDC captures DELETE (before_product=Apple)" '\[TC48-DELETE\].*Apple' 30
+assert_log_contains "T7: CDC captures DELETE (before_product=Apple)" '\[TC48-DELETE\].*data=\[1, Apple\]' 30
 
 undeploy_app "TC48_CDCPgDelete.siddhi"
 
 # ── Multiple INSERTs ─────────────────────────────────────────────────────────
 log_info "T8: Deploy INSERT app again for multi-row test"
+mark_log
 _BASELINE=$(wc -l < "${SI_LOG}" 2>/dev/null || echo 0)
 deploy_app   "TC48_CDCPgInsert.siddhi"
-assert_log_contains "T8: TC48 INSERT app restarted" 'TC48_CDCPgInsert.*deployed successfully' 60
+assert_app_deployed "T8: TC48 INSERT app restarted" TC48_CDCPgInsert 60
 _wait_pg_streaming "$_BASELINE"
 
 log_info "T9: Multiple INSERTs in quick succession"
 postgres_query "INSERT INTO cdc_listen_table_pg VALUES (2,'Banana',3,1.20);" >/dev/null
 postgres_query "INSERT INTO cdc_listen_table_pg VALUES (3,'Cherry',8,4.00);" >/dev/null
-assert_log_contains "T9: CDC captures Banana" '\[TC48-INSERT\].*Banana' 20
-assert_log_contains "T9: CDC captures Cherry" '\[TC48-INSERT\].*Cherry' 10
+assert_log_contains "T9: CDC captures Banana" '\[TC48-INSERT\].*data=\[2, Banana, ' 20
+assert_log_contains "T9: CDC captures Cherry" '\[TC48-INSERT\].*data=\[3, Cherry, ' 10
 
 print_summary; tc_exit_code

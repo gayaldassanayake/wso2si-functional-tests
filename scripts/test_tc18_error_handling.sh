@@ -9,7 +9,7 @@ require_si_running
 
 undeploy_app "TC18_ErrorHandling.siddhi"
 deploy_app   "TC18_ErrorHandling.siddhi"
-assert_log_contains "TC18 app started" 'TC18_ErrorHandling.*deployed successfully' 30
+assert_app_deployed "TC18 app started" TC18_ErrorHandling 30
 
 URL="http://localhost:${PORT_TC18}/TC18_ErrorHandling/InputStream"
 
@@ -26,14 +26,14 @@ assert_log_contains "T2: invalid event logged [TC18-INVALID]" '\[TC18-INVALID\].
 
 log_info "T3: [TC18-VALID] should NOT contain ev-2 (checking only new log lines)"
 sleep 2
-if tail -n +"$((LOG_BASELINE + 1))" "${SI_LOG}" 2>/dev/null | grep -E '\[TC18-VALID\]' | grep -q 'ev-2'; then
+if tail -n +"$((LOG_BASELINE + 1))" "${SI_LOG}" 2>/dev/null | grep -E '\[TC18-VALID\]' | grep 'ev-2' >/dev/null; then
     log_fail "T3: ev-2 (invalid) incorrectly routed to VALID stream"
 else
     log_pass "T3: ev-2 correctly absent from VALID stream"
 fi
 
 log_info "T4: [TC18-INVALID] should NOT contain ev-1"
-if tail -n +"$((LOG_BASELINE + 1))" "${SI_LOG}" 2>/dev/null | grep -E '\[TC18-INVALID\]' | grep -q 'ev-1'; then
+if tail -n +"$((LOG_BASELINE + 1))" "${SI_LOG}" 2>/dev/null | grep -E '\[TC18-INVALID\]' | grep 'ev-1' >/dev/null; then
     log_fail "T4: ev-1 (valid) incorrectly routed to INVALID stream"
 else
     log_pass "T4: ev-1 correctly absent from INVALID stream"

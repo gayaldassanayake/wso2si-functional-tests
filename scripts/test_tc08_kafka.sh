@@ -15,7 +15,7 @@ KAFKA_OPTS="-X broker.address.family=v4"
 KAFKA_PRODUCER="kcat -b ${KAFKA_BOOTSTRAP} ${KAFKA_OPTS} -t si-test-input -P"
 
 log_info "T1: Wait for Kafka app to start (checking SI log)"
-assert_log_contains "T1: Kafka app started" 'TC08_KafkaPassThrough.*deployed successfully' 30
+redeploy_app "TC08_KafkaPassThrough.siddhi" TC08_KafkaPassThrough || { print_summary; exit 1; }
 
 log_info "T2: Produce 3 events (2 above filter threshold, 1 below)"
 # Events: chocolate(50.0) passes, toffee(5.0) filtered, cake(200.0) passes

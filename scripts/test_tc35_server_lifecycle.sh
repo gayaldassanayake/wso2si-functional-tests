@@ -25,13 +25,23 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# carbon.log keeps earlier boots, so only what this start logged counts.
+START_OFFSET=0
+[[ -f "${TOOLS_LOG}" ]] && START_OFFSET=$(wc -c < "${TOOLS_LOG}" | tr -d ' ')
+log_since_start() {
+    [[ -f "${TOOLS_LOG}" ]] || return 0
+    local size
+    size=$(wc -c < "${TOOLS_LOG}" | tr -d ' ')
+    if (( size < START_OFFSET )); then cat "${TOOLS_LOG}"; else tail -c +"$(( START_OFFSET + 1 ))" "${TOOLS_LOG}"; fi
+}
+
 log_info "T1: server.sh start — server must start cleanly on the current JDK"
 sh "${TOOLS_PACK_HOME}/bin/server.sh" start 2>&1
 
 ELAPSED=0
 STARTED=false
-while (( ELAPSED < 30 )); do
-    if grep -q "WSO2 Streaming Integrator started" "${TOOLS_LOG}" 2>/dev/null; then
+while (( ELAPSED < 60 )); do
+    if log_since_start | grep "WSO2 Streaming Integrator started" >/dev/null; then
         STARTED=true
         break
     fi
@@ -42,11 +52,11 @@ done
 if $STARTED; then
     log_pass "T1: server started successfully"
 else
-    log_fail "T1: server did not start within 30s"
+    log_fail "T1: server did not start within 60s"
 fi
 
 log_info "T2: no Java version restriction message in log"
-if grep -qE "unsupported JDK|CARBON is supported only" "${TOOLS_LOG}" 2>/dev/null; then
+if log_since_start | grep -E "unsupported JDK|CARBON is supported only" >/dev/null; then
     log_fail "T2: version restriction message found in carbon.log"
 else
     log_pass "T2: no version restriction message in carbon.log"

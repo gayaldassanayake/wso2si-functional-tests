@@ -9,7 +9,7 @@ require_si_running
 SALES_URL="http://localhost:${PORT_TC09}/TC09_IncrementalAggregation/SalesStream"
 QUERY_URL="http://localhost:${PORT_TC09}/TC09_IncrementalAggregation/QueryStream"
 
-assert_log_contains "app deployed" 'TC09_IncrementalAggregation.*deployed successfully' 30
+redeploy_app "TC09_IncrementalAggregation.siddhi" TC09_IncrementalAggregation || { print_summary; exit 1; }
 
 # Generate timestamps in epoch milliseconds
 NOW_MS=$(python3 -c "import time; print(int(time.time() * 1000))")
@@ -48,13 +48,13 @@ print(t.strftime('%Y-%m-%d %H:%M:%S +00:00'))
 log_info "  Querying: startTime='${START_TIME}', endTime='${END_TIME}'"
 
 post_event "${QUERY_URL}" "{\"startTime\":\"${START_TIME}\",\"endTime\":\"${END_TIME}\",\"name\":\"chocolate\"}" >/dev/null
-assert_log_contains "T3: aggregation result returned for chocolate" '\[TC09-RESULT\].*chocolate' 20
+assert_log_contains "T3: aggregation result returned for chocolate" '\[TC09-RESULT\].*data=\[chocolate, ' 20
 
 log_info "T4: Query aggregation for 'toffee'"
 post_event "${QUERY_URL}" "{\"startTime\":\"${START_TIME}\",\"endTime\":\"${END_TIME}\",\"name\":\"toffee\"}" >/dev/null
-assert_log_contains "T4: aggregation result returned for toffee" '\[TC09-RESULT\].*toffee' 15
+assert_log_contains "T4: aggregation result returned for toffee" '\[TC09-RESULT\].*data=\[toffee, ' 15
 
 log_info "T5: Verify result log shows correct min/max (toffee min=50.0, max=70.0)"
-assert_log_contains "T5: toffee max=70.0 in aggregation result" '\[TC09-RESULT\].*70' 10
+assert_log_contains "T5: toffee max=70.0 in aggregation result" '\[TC09-RESULT\].*data=\[toffee, [^]]*, 70\.0\]' 10
 
 print_summary; tc_exit_code

@@ -18,7 +18,7 @@ fi
 URL="http://localhost:${PORT_TC46}/TC46_RedisStore/SessionStream"
 
 log_info "T1: Wait for TC46 Redis store app to start"
-assert_log_contains "T1: TC46 app deployed" 'TC46_RedisStore.*deployed successfully' 30
+redeploy_app "TC46_RedisStore.siddhi" TC46_RedisStore || { print_summary; exit 1; }
 
 log_info "T2: POST 3 session events"
 post_event "${URL}" '{"sessionId":"S1","userId":"alice","loginTime":1700000000}' >/dev/null

@@ -12,8 +12,8 @@ undeploy_app "TC41_GrpcServer.siddhi"
 undeploy_app "TC41_GrpcClient.siddhi"
 deploy_app   "TC41_GrpcServer.siddhi"
 deploy_app   "TC41_GrpcClient.siddhi"
-assert_log_contains "T1: TC41 server started" 'TC41_GrpcServer.*deployed successfully' 30
-assert_log_contains "T1: TC41 client started" 'TC41_GrpcClient.*deployed successfully' 30
+assert_app_deployed "T1: TC41 server started" TC41_GrpcServer 30
+assert_app_deployed "T1: TC41 client started" TC41_GrpcClient 30
 
 log_info "T2: POST one request — server echoes it back to client"
 STATUS=$(post_event "http://localhost:${PORT_TC41}/TC41_GrpcClient/TriggerStream" \

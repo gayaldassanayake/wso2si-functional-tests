@@ -19,7 +19,7 @@ oracle_query "DROP TABLE IF EXISTS TC52_ORDERS PURGE;" >/dev/null
 
 undeploy_app "TC52_OracleLdapStore.siddhi"
 deploy_app   "TC52_OracleLdapStore.siddhi"
-assert_log_contains "app deployed" 'TC52_OracleLdapStore.*deployed successfully' 60
+assert_app_deployed "app deployed" TC52_OracleLdapStore 60
 
 log_info "T1: Oracle store connects through the LDAP-resolved URL"
 if ! assert_log_not_contains "T1: no store connection error" \

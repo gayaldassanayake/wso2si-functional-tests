@@ -11,7 +11,7 @@ CURRENT_TC="TC39"
 require_si_running
 require_mysql_running
 
-if ! ls "${SI_HOME}/lib/mysql-connector"*.jar 2>/dev/null | head -1 | grep -q '.jar'; then
+if ! ls "${SI_HOME}/lib/mysql-connector"*.jar 2>/dev/null | head -1 | grep '.jar' >/dev/null; then
     log_skip "MySQL JDBC driver not found in \${SI_HOME}/lib/ — skipping TC39"
     exit 0
 fi
@@ -30,7 +30,7 @@ _wait_debezium_ready() {
     local baseline="$1"
     local elapsed=0
     until tail -n +"$((baseline + 1))" "${SI_LOG}" 2>/dev/null \
-          | grep -qE 'Keepalive thread is running'; do
+          | grep -E 'Keepalive thread is running' >/dev/null; do
         sleep 1; (( elapsed++ )) || true
         if (( elapsed >= 30 )); then
             log_fail "Debezium binlog streaming not ready within 30s"
@@ -43,56 +43,60 @@ _wait_debezium_ready() {
 # ── T1: INSERT ────────────────────────────────────────────────────────────────
 log_info "T1: TC39 INSERT app started (Debezium connector initialises)"
 undeploy_app "TC39_CDCInsert.siddhi"
+mark_log
 _BASELINE=$(wc -l < "${SI_LOG}" 2>/dev/null || echo 0)
 deploy_app   "TC39_CDCInsert.siddhi"
-assert_log_contains "T1: TC39 INSERT app started" 'TC39_CDCInsert.*deployed successfully' 60
+assert_app_deployed "T1: TC39 INSERT app started" TC39_CDCInsert 60
 _wait_debezium_ready "$_BASELINE"
 
 log_info "T2: INSERT — CDC listening captures new row"
 mysql_query "INSERT INTO cdc_listen_table (order_id, product, quantity, price) VALUES (1, 'Apple', 5, 2.50);"
-assert_log_contains "T2: CDC captures INSERT (Apple)" '\[TC39-INSERT\].*Apple' 30
+assert_log_contains "T2: CDC captures INSERT (Apple)" '\[TC39-INSERT\].*data=\[1, Apple, 5, 2\.5\]' 30
 
 undeploy_app "TC39_CDCInsert.siddhi"
 
 # ── T3: UPDATE ────────────────────────────────────────────────────────────────
 log_info "T3: TC39 UPDATE app started (Debezium connector initialises)"
 undeploy_app "TC39_CDCUpdate.siddhi"
+mark_log
 _BASELINE=$(wc -l < "${SI_LOG}" 2>/dev/null || echo 0)
 deploy_app   "TC39_CDCUpdate.siddhi"
-assert_log_contains "T3: TC39 UPDATE app started" 'TC39_CDCUpdate.*deployed successfully' 60
+assert_app_deployed "T3: TC39 UPDATE app started" TC39_CDCUpdate 60
 _wait_debezium_ready "$_BASELINE"
 
 log_info "T4: UPDATE — CDC listening captures row change"
 mysql_query "UPDATE cdc_listen_table SET quantity=20, price=3.00 WHERE order_id=1;"
-assert_log_contains "T4: CDC captures UPDATE (quantity=20)" '\[TC39-UPDATE\].*20' 30
+assert_log_contains "T4: CDC captures UPDATE (quantity=20)" '\[TC39-UPDATE\].*data=\[1, Apple, 20, 3\.0\]' 30
 
 undeploy_app "TC39_CDCUpdate.siddhi"
 
 # ── T5: DELETE ────────────────────────────────────────────────────────────────
 log_info "T5: TC39 DELETE app started (Debezium connector initialises)"
 undeploy_app "TC39_CDCDelete.siddhi"
+mark_log
 _BASELINE=$(wc -l < "${SI_LOG}" 2>/dev/null || echo 0)
 deploy_app   "TC39_CDCDelete.siddhi"
-assert_log_contains "T5: TC39 DELETE app started" 'TC39_CDCDelete.*deployed successfully' 60
+assert_app_deployed "T5: TC39 DELETE app started" TC39_CDCDelete 60
 _wait_debezium_ready "$_BASELINE"
 
 log_info "T6: DELETE — CDC listening captures row removal"
 mysql_query "DELETE FROM cdc_listen_table WHERE order_id=1;"
-assert_log_contains "T6: CDC captures DELETE (before_order_id=1)" '\[TC39-DELETE\].*1' 30
+assert_log_contains "T6: CDC captures DELETE (before_order_id=1)" '\[TC39-DELETE\].*data=\[1, Apple\]' 30
 
 undeploy_app "TC39_CDCDelete.siddhi"
 
 # ── T7: Multiple INSERTs ──────────────────────────────────────────────────────
 log_info "T7: Deploy INSERT app again for multi-row test"
+mark_log
 _BASELINE=$(wc -l < "${SI_LOG}" 2>/dev/null || echo 0)
 deploy_app   "TC39_CDCInsert.siddhi"
-assert_log_contains "T7: TC39 INSERT app restarted" 'TC39_CDCInsert.*deployed successfully' 60
+assert_app_deployed "T7: TC39 INSERT app restarted" TC39_CDCInsert 60
 _wait_debezium_ready "$_BASELINE"
 
 log_info "T8: Multiple INSERTs in quick succession"
 mysql_query "INSERT INTO cdc_listen_table VALUES (2,'Banana',3,1.20);"
 mysql_query "INSERT INTO cdc_listen_table VALUES (3,'Cherry',8,4.00);"
-assert_log_contains "T8: CDC captures Banana" '\[TC39-INSERT\].*Banana' 20
-assert_log_contains "T8: CDC captures Cherry" '\[TC39-INSERT\].*Cherry' 10
+assert_log_contains "T8: CDC captures Banana" '\[TC39-INSERT\].*data=\[2, Banana, ' 20
+assert_log_contains "T8: CDC captures Cherry" '\[TC39-INSERT\].*data=\[3, Cherry, ' 10
 
 print_summary; tc_exit_code

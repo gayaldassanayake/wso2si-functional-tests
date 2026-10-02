@@ -937,9 +937,17 @@ Each test script uses three assertion mechanisms, all implemented in `scripts/li
 
 Every Siddhi app uses a `log` sink with a unique prefix (e.g., `[TC05-ALERT]`). The test polls the SI log file (`carbon.log`) every second for up to a configurable timeout, looking for a regex pattern. This is the primary assertion for stream processing results.
 
+Log assertions only see what SI logged after the **log mark**. `common.sh` sets the mark when a test starts, and `undeploy_app` moves it once SI confirms the undeploy, so lines from earlier runs, earlier tests or the old app's shutdown can't satisfy a check. Call `mark_log` before a step whose pattern repeats an earlier one. Lines SI writes only at startup (Thrift ports, for example) are checked with `assert_boot_log_contains`, which reads from the start of the current boot.
+
+Anchor patterns on the event data, not on a loose substring: LogSink prints `Event{timestamp=…, data=[…], isExpired=false}`, so a pattern like `'.*false'` or `'.*1'` matches every event.
+
 ```
-assert_log_contains "description" '\[TC05-ALERT\].*userId' 15
+assert_log_contains "description" '\[TC05-ALERT\].*data=\[u1, ' 15
 ```
+
+**Deployment (`assert_app_deployed`, `redeploy_app`)**
+
+`assert_app_deployed "desc" AppName` waits for `Siddhi App AppName deployed successfully` since the mark and fails if SI also logged `Error starting Siddhi App 'AppName'` or `Error on 'AppName'` (a source or sink that failed to start, such as an HTTP port already in use). SI logs "deployed successfully" even in that case. `redeploy_app file.siddhi AppName` undeploys, deploys and asserts, which also gives the test fresh in-memory state.
 
 **2. Store API queries (`assert_store_count`)**
 

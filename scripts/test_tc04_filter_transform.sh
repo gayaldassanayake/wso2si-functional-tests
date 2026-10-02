@@ -12,30 +12,31 @@ URL="http://localhost:${PORT_TC04}/TC04_FilterTransform/OrderStream"
 # spurious double-pickup of the batch-deployed file cannot race with our events.
 undeploy_app "TC04_FilterTransform.siddhi"
 deploy_app   "TC04_FilterTransform.siddhi"
-assert_log_contains "app deployed" 'TC04_FilterTransform.*deployed successfully' 30
+assert_app_deployed "app deployed" TC04_FilterTransform 30
 
 log_info "T1: total=125 (5*25) should go to HIGH stream only"
 post_event "${URL}" '{"orderId":"ord-1","product":"toffee","qty":5,"unitPrice":25.0}' >/dev/null
-assert_log_contains "T1: [TC04-HIGH] fires for total=125" '\[TC04-HIGH\].*ord-1' 20
+assert_log_contains "T1: [TC04-HIGH] fires for total=125" '\[TC04-HIGH\].*data=\[ord-1, ' 20
 
 log_info "T2: HIGH stream should NOT fire for low-value orders (sanity check)"
 # [TC04-LOW] should contain ord-2 when we post it next
 post_event "${URL}" '{"orderId":"ord-2","product":"candy","qty":2,"unitPrice":30.0}' >/dev/null
 # ord-1 was already processed - just check ord-2 doesn't appear in HIGH
 sleep 2
-assert_log_contains "T2: [TC04-LOW] fires for total=60" '\[TC04-LOW\].*ord-2' 10
+assert_log_contains "T2: [TC04-LOW] fires for total=60" '\[TC04-LOW\].*data=\[ord-2, ' 10
+assert_log_not_contains "T2: [TC04-HIGH] does not fire for ord-2" '\[TC04-HIGH\].*data=\[ord-2, ' 0
 
 log_info "T3: Boundary - total=100 exactly should go to LOW (condition is >100 for HIGH)"
 post_event "${URL}" '{"orderId":"ord-3","product":"cake","qty":4,"unitPrice":25.0}' >/dev/null
-assert_log_contains "T3: exact boundary=100 goes to LOW" '\[TC04-LOW\].*ord-3' 15
+assert_log_contains "T3: exact boundary=100 goes to LOW" '\[TC04-LOW\].*data=\[ord-3, ' 15
 
 log_info "T4: Verify product name is UPPERCASED in HIGH stream"
 post_event "${URL}" '{"orderId":"ord-4","product":"chocolate","qty":10,"unitPrice":20.0}' >/dev/null
-assert_log_contains "T4: product uppercased in HIGH output" '\[TC04-HIGH\].*CHOCOLATE' 15
+assert_log_contains "T4: product uppercased in HIGH output" '\[TC04-HIGH\].*data=\[ord-4, CHOCOLATE, ' 15
 
 log_info "T5: Verify product name is lowercased in LOW stream"
 post_event "${URL}" '{"orderId":"ord-5","product":"CANDY","qty":1,"unitPrice":50.0}' >/dev/null
-assert_log_contains "T5: product lowercased in LOW output" '\[TC04-LOW\].*candy' 15
+assert_log_contains "T5: product lowercased in LOW output" '\[TC04-LOW\].*data=\[ord-5, candy, ' 15
 
 log_info "T6: Verify HIGH table has the tag field (HIGH-<orderId>)"
 sleep 3

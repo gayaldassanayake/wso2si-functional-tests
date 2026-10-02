@@ -22,7 +22,7 @@ undeploy_app "${APP_FILE}"
 deploy_app "${APP_FILE}"
 
 log_info "T1: app deploys"
-assert_log_contains "T1: TC63 deployed" 'TC63_FileSearchDynamicRegex.*deployed successfully' 30 || { print_summary; exit 1; }
+assert_app_deployed "T1: TC63 deployed" TC63_FileSearchDynamicRegex 30 || { print_summary; exit 1; }
 
 log_info "T2: first event's regex finds its file"
 post_event "${URL}" "{\"id\":\"${RUN_ID}-1\",\"regex\":\"alpha\"}" >/dev/null

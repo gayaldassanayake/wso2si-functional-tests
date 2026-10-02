@@ -18,7 +18,7 @@ undeploy_app "${APP_FILE}"
 deploy_app "${APP_FILE}"
 
 log_info "T1: app using keyword attribute names deploys"
-assert_log_contains "T1: TC59 deployed" 'TC59_KeywordAttributeNames.*deployed successfully' 30 || { print_summary; exit 1; }
+assert_app_deployed "T1: TC59 deployed" TC59_KeywordAttributeNames 30 || { print_summary; exit 1; }
 assert_log_not_contains "T1: no parser error" 'SiddhiParserException.*TC59|mismatched input.*offset' 1
 
 log_info "T2: filter and select on keyword attributes"

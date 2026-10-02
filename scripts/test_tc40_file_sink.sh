@@ -13,7 +13,7 @@ trap cleanup EXIT
 log_info "T1: TC40 app started"
 undeploy_app "TC40_FileSink.siddhi"
 deploy_app   "TC40_FileSink.siddhi"
-assert_log_contains "T1: TC40 app started" 'TC40_FileSink.*deployed successfully' 30
+assert_app_deployed "T1: TC40 app started" TC40_FileSink 30
 
 log_info "T2: POST one event — output file created and contains the product name"
 STATUS=$(post_event "http://localhost:${PORT_TC40}/TC40_FileSink/SalesInputStream" \

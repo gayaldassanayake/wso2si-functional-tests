@@ -20,7 +20,7 @@ log_info "T1: Verify TC49 app started successfully"
 undeploy_app "TC49_CDCPgPolling.siddhi"
 postgres_query "DELETE FROM cdc_test_table_pg WHERE item_id LIKE 'pgcdc-%';" >/dev/null 2>&1 || true
 deploy_app   "TC49_CDCPgPolling.siddhi"
-assert_log_contains "T1: TC49 app started" 'TC49_CDCPgPolling.*deployed successfully' 30
+assert_app_deployed "T1: TC49 app started" TC49_CDCPgPolling 30
 
 log_info "T2: Insert row into Postgres cdc_test_table_pg"
 postgres_query "INSERT INTO cdc_test_table_pg (item_id, item_name, quantity) VALUES ('pgcdc-1', 'Apple', 10);" >/dev/null

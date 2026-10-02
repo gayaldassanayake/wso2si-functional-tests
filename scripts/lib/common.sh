@@ -113,14 +113,63 @@ deploy_app() {
     sleep "${DEPLOY_WAIT_SECONDS}"
 }
 
+# Waits for SI to finish undeploying, then moves the log mark past it, so the
+# old app's shutdown errors can't fail a later assertion.
 undeploy_app() {
     local app_file="$1"
+    local was_deployed=false
+    [[ -f "${SI_SIDDHI_DIR}/${app_file}" ]] && was_deployed=true
     rm -f "${SI_SIDDHI_DIR}/${app_file}"
+    if [[ "${was_deployed}" == "true" ]] &&
+       ! wait_for_log "Siddhi App File ${app_file%.siddhi} undeployed successfully" 30; then
+        log_warn "SI did not confirm undeploying ${app_file} within 30s"
+    fi
+    sleep 1
+    _set_log_mark
     log_info "Undeployed ${app_file}"
-    sleep 2
 }
 
 # ─── Log assertion helpers ───────────────────────────────────────────────────
+# Log assertions only see what SI logged after LOG_MARK, so lines left by
+# earlier runs or earlier tests can't satisfy them. Each test script sources
+# this file in a fresh process, which marks the log at test start.
+
+LOG_MARK=0
+
+# Some tests define their own mark_log; the helpers here use _set_log_mark so
+# they never move a test's private offset.
+_set_log_mark() {
+    LOG_MARK=0
+    [[ -f "${SI_LOG}" ]] || return 0
+    LOG_MARK=$(wc -c < "${SI_LOG}" | tr -d ' ') || LOG_MARK=0
+    [[ -n "${LOG_MARK}" ]] || LOG_MARK=0
+}
+
+mark_log() { _set_log_mark; }
+
+# Prints the SI log from LOG_MARK onward. A log shorter than the mark has
+# rotated, so it is read from the start.
+log_since_mark() {
+    [[ -f "${SI_LOG}" ]] || return 0
+    local size
+    size=$(wc -c < "${SI_LOG}" | tr -d ' ') || return 0
+    if (( ${size:-0} < LOG_MARK )); then
+        cat "${SI_LOG}" 2>/dev/null
+    else
+        tail -c +"$(( LOG_MARK + 1 ))" "${SI_LOG}" 2>/dev/null
+    fi
+    return 0
+}
+
+_set_log_mark
+
+# Prints the SI log from the start of the current server boot, for lines SI
+# writes only at startup. The WebSocket line is the earliest one SI logs on every
+# start; the launcher's updateOSGiLib line only appears when lib/ changed.
+log_since_boot() {
+    [[ -f "${SI_LOG}" ]] || return 0
+    awk '/WebSocketServerSC.*All required capabilities/ { buf = "" } { buf = buf $0 "\n" } END { printf "%s", buf }' "${SI_LOG}"
+}
 
 # Poll the SI log until pattern appears or timeout expires.
 # Returns 0 on match, 1 on timeout.
@@ -129,7 +178,7 @@ wait_for_log() {
     local timeout="${2:-30}"
     local elapsed=0
     while (( elapsed < timeout )); do
-        if tail -n "${LOG_TAIL_LINES}" "${SI_LOG}" 2>/dev/null | grep -E "${pattern}" > /dev/null; then
+        if log_since_mark | grep -E "${pattern}" > /dev/null; then
             return 0
         fi
         sleep 1
@@ -152,14 +201,65 @@ assert_log_contains() {
     fi
 }
 
-# Assert that pattern does NOT appear in the last LOG_TAIL_LINES of the log.
+# Assert that the app logged "deployed successfully" since the mark and that
+# none of its sources or sinks failed to start (SI logs both lines then).
+assert_app_deployed() {
+    local description="$1"
+    local app_name="$2"
+    local timeout="${3:-30}"
+    if ! wait_for_log "Siddhi App ${app_name} deployed successfully" "${timeout}"; then
+        log_fail "${description}: '${app_name} deployed successfully' not logged within ${timeout}s"
+        return 1
+    fi
+    local err
+    err=$(log_since_mark | grep -E "Error (starting Siddhi App|on) '${app_name}'" | head -1) || true
+    if [[ -n "${err}" ]]; then
+        log_fail "${description}: ${app_name} deployed but failed to start: ${err#*\} - }"
+        return 1
+    fi
+    log_pass "${description}"
+}
+
+# Undeploy and deploy an app so the test starts with fresh state and its own
+# deployment line, then assert it started.
+redeploy_app() {
+    local app_file="$1"
+    local app_name="$2"
+    undeploy_app "${app_file}"
+    deploy_app "${app_file}"
+    assert_app_deployed "${app_name} deployed" "${app_name}" 30
+}
+
+# Assert that a line SI writes at startup is present in the current boot.
+assert_boot_log_contains() {
+    local description="$1"
+    local pattern="$2"
+    if log_since_boot | grep -E "${pattern}" > /dev/null; then
+        log_pass "${description}"
+        return 0
+    fi
+    log_fail "${description}: pattern '${pattern}' not found since the server started"
+    return 1
+}
+
+assert_boot_log_not_contains() {
+    local description="$1"
+    local pattern="$2"
+    if log_since_boot | grep -E "${pattern}" > /dev/null; then
+        log_fail "${description}: pattern '${pattern}' was found since the server started but should NOT be"
+        return 1
+    fi
+    log_pass "${description}"
+}
+
+# Assert that pattern does NOT appear in the log since the mark.
 # Used for negative tests (wait a moment first, then check absence).
 assert_log_not_contains() {
     local description="$1"
     local pattern="$2"
     local wait_secs="${3:-3}"
     sleep "${wait_secs}"
-    if tail -n "${LOG_TAIL_LINES}" "${SI_LOG}" 2>/dev/null | grep -E "${pattern}" > /dev/null; then
+    if log_since_mark | grep -E "${pattern}" > /dev/null; then
         log_fail "${description}: pattern '${pattern}' was found in log but should NOT be"
         return 1
     else

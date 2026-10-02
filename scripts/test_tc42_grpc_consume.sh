@@ -12,15 +12,16 @@ undeploy_app "TC42_GrpcConsume.siddhi"
 undeploy_app "TC42_GrpcSender.siddhi"
 deploy_app   "TC42_GrpcConsume.siddhi"
 deploy_app   "TC42_GrpcSender.siddhi"
-assert_log_contains "T1: TC42 consumer started" 'TC42_GrpcConsume.*deployed successfully' 30
-assert_log_contains "T1: TC42 sender started" 'TC42_GrpcSender.*deployed successfully' 30
+assert_app_deployed "T1: TC42 consumer started" TC42_GrpcConsume 30
+assert_app_deployed "T1: TC42 sender started" TC42_GrpcSender 30
 
 # GrpcEventServiceServer closes the HTTP/2 stream after each consumed event
 # (calls responseObserver.onCompleted() in onNext). Redeploy the sender to get
 # a fresh gRPC streaming connection before each event delivery.
+mark_log
 undeploy_app "TC42_GrpcSender.siddhi"
 deploy_app   "TC42_GrpcSender.siddhi"
-assert_log_contains "T1: TC42 sender restarted" 'TC42_GrpcSender.*deployed successfully' 30
+assert_app_deployed "T1: TC42 sender restarted" TC42_GrpcSender 30
 
 log_info "T2: POST one event — consumer receives it"
 STATUS=$(post_event "http://localhost:${PORT_TC42}/TC42_GrpcSender/SendStream" \
@@ -32,9 +33,10 @@ else
 fi
 
 log_info "T3: Sender reconnects — another event is delivered on a fresh connection"
+mark_log
 undeploy_app "TC42_GrpcSender.siddhi"
 deploy_app   "TC42_GrpcSender.siddhi"
-assert_log_contains "T3: TC42 sender restarted" 'TC42_GrpcSender.*deployed successfully' 30
+assert_app_deployed "T3: TC42 sender restarted" TC42_GrpcSender 30
 STATUS=$(post_event "http://localhost:${PORT_TC42}/TC42_GrpcSender/SendStream" \
     '{"message":"Reconnect"}')
 if [[ "${STATUS}" != "200" ]]; then

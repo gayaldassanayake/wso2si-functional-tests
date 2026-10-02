@@ -10,7 +10,7 @@ URL="http://localhost:${PORT_TC50}/TC50_JavaScriptFunction/ProfileStream"
 
 undeploy_app "TC50_JavaScriptFunction.siddhi"
 deploy_app   "TC50_JavaScriptFunction.siddhi"
-assert_log_contains "app deployed" 'TC50_JavaScriptFunction.*deployed successfully' 30
+assert_app_deployed "app deployed" TC50_JavaScriptFunction 30
 
 log_info "T1: JavaScript function trims and uppercases a name"
 post_event "${URL}" '{"profileId":"p1","firstName":"  ada","lastName":"lovelace  "}' >/dev/null

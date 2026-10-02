@@ -42,9 +42,9 @@ log_info "T0: wso2event extension present"
 
 # ─── T1: verify receiver startup log lines ────────────────────────────────────
 log_info "T1: checking Thrift receiver startup messages in carbon.log"
-assert_log_contains "T1: Thrift TCP receiver bound"  'Thrift port : 7611'       5
-assert_log_contains "T1: Thrift SSL receiver bound"  'Thrift SSL port : 7711'   5
-assert_log_contains "T1: Thrift server started"      'Thrift Server started at' 5
+assert_boot_log_contains "T1: Thrift TCP receiver bound" 'Thrift port : 7611'
+assert_boot_log_contains "T1: Thrift SSL receiver bound" 'Thrift SSL port : 7711'
+assert_boot_log_contains "T1: Thrift server started" 'Thrift Server started at'
 
 # ─── T2: deploy Siddhi apps ───────────────────────────────────────────────────
 log_info "T2: deploying TC43 Siddhi apps"
@@ -55,8 +55,8 @@ undeploy_app "TC43_ThriftReceiver.siddhi"
 deploy_app "TC43_ThriftReceiver.siddhi"   # subscribe first — avoids missing events
 deploy_app "TC43_ThriftSenderTCP.siddhi"
 
-assert_log_contains "T2: receiver app deployed"   'TC43_ThriftReceiver.*deployed successfully'  30
-assert_log_contains "T2: TCP sender app deployed" 'TC43_ThriftSenderTCP.*deployed successfully' 30
+assert_app_deployed "T2: receiver app deployed" TC43_ThriftReceiver 30
+assert_app_deployed "T2: TCP sender app deployed" TC43_ThriftSenderTCP 30
 
 # ─── T3: single event — TCP data + SSL auth ───────────────────────────────────
 # Data flows via ThriftClientPoolFactory → TSocket(TConfiguration, host, port, timeout) → TCP 7611
@@ -76,7 +76,8 @@ done
 assert_log_contains "T4: burst events received" '\[TC43-RECV\].*TCP.*BURST' 20
 
 # ─── T5: no transport / auth errors ──────────────────────────────────────────
-assert_log_not_contains "T5: no Thrift transport errors" \
-    'Cannot start Thrift server|Can not create and start Agent Server|Authentication failed for user admin' 3
+sleep 3
+assert_boot_log_not_contains "T5: no Thrift transport errors" \
+    'Cannot start Thrift server|Can not create and start Agent Server|Authentication failed for user admin'
 
 print_summary; tc_exit_code

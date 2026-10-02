@@ -12,7 +12,7 @@ log_info "T1 (positive): Send two consecutive readings from s1 with 5-degree ris
 post_event "${URL}" '{"sensorId":"s1","temperature":20.0,"location":"server-room"}' >/dev/null
 sleep 0.3
 post_event "${URL}" '{"sensorId":"s1","temperature":25.0,"location":"server-room"}' >/dev/null
-assert_log_contains "T1: sequence fires for 5-degree rise" '\[TC13-RISE\].*s1' 20
+assert_log_contains "T1: sequence fires for 5-degree rise" '\[TC13-RISE\].*data=\[s1, server-room, 20\.0, 25\.0, 5\.0\]' 20
 
 log_info "T2: Verify s1 is in TempRiseTable"
 sleep 3
@@ -23,7 +23,7 @@ log_info "T3 (positive): Large rise for s2"
 post_event "${URL}" '{"sensorId":"s2","temperature":15.0,"location":"datacenter"}' >/dev/null
 sleep 0.3
 post_event "${URL}" '{"sensorId":"s2","temperature":40.0,"location":"datacenter"}' >/dev/null
-assert_log_contains "T3: sequence fires for s2 (25-degree rise)" '\[TC13-RISE\].*s2' 15
+assert_log_contains "T3: sequence fires for s2 (25-degree rise)" '\[TC13-RISE\].*data=\[s2, datacenter, 15\.0, 40\.0, 25\.0\]' 15
 sleep 2
 assert_store_count "T3: s2 is in TempRiseTable" "TC13_Sequence" \
     "from TempRiseTable select * having sensorId == 's2'" 1
@@ -41,6 +41,6 @@ log_info "T5 (positive): Multiple events for s1 - new sequence fires on next 5+ 
 post_event "${URL}" '{"sensorId":"s1","temperature":25.0,"location":"server-room"}' >/dev/null
 sleep 0.3
 post_event "${URL}" '{"sensorId":"s1","temperature":31.0,"location":"server-room"}' >/dev/null
-assert_log_contains "T5: second sequence fires for s1" '\[TC13-RISE\].*s1' 15
+assert_log_contains "T5: second sequence fires for s1" '\[TC13-RISE\].*data=\[s1, server-room, 25\.0, 31\.0, 6\.0\]' 15
 
 print_summary; tc_exit_code

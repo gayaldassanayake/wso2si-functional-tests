@@ -30,7 +30,7 @@ URL="http://localhost:${PORT_TC54}/TC54_MongoStore/CustomerStream"
 require_mongo_installer_artifacts
 
 log_info "T2: Wait for TC54 MongoDB store app to start"
-if ! assert_log_contains "T2: TC54 app deployed" 'Siddhi App TC54_MongoStore deployed successfully' 30; then
+if ! redeploy_app "TC54_MongoStore.siddhi" TC54_MongoStore; then
     print_summary
     exit 1
 fi

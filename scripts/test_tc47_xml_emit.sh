@@ -11,7 +11,7 @@ require_si_running
 INGEST_URL="http://localhost:${PORT_TC47}/TC47_XmlEmit/XmlInStream"
 
 log_info "T1: Wait for TC47 app to start"
-assert_log_contains "T1: TC47 app deployed" 'TC47_XmlEmit.*deployed successfully' 30
+redeploy_app "TC47_XmlEmit.siddhi" TC47_XmlEmit || { print_summary; exit 1; }
 
 log_info "T2: POST XML payload (price=25.5 → priceTag=premium)"
 post_raw "${INGEST_URL}" "application/xml" \

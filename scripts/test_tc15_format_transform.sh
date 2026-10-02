@@ -9,7 +9,7 @@ require_si_running
 
 undeploy_app "TC15_FormatTransform.siddhi"
 deploy_app   "TC15_FormatTransform.siddhi"
-assert_log_contains "TC15 app started" 'TC15_FormatTransform.*deployed successfully' 30
+assert_app_deployed "TC15 app started" TC15_FormatTransform 30
 
 XML_URL="http://localhost:${PORT_TC15}/TC15_FormatTransform/XmlStream"
 JSON_CUSTOM_URL="http://localhost:${PORT_TC15}/TC15_FormatTransform/JsonCustomStream"

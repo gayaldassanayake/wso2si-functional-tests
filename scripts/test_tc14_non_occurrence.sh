@@ -17,7 +17,7 @@ log_info "  Waiting up to 25s for the non-occurrence window to expire..."
 # Poll only new log lines to avoid matching stale dev-A entry from previous runs
 DEV_A_FOUND=false
 for i in $(seq 1 25); do
-    if tail -n +"$((LOG_BEFORE_TEST + 1))" "${SI_LOG}" 2>/dev/null | grep -qE '\[TC14-MISSING\].*dev-A'; then
+    if tail -n +"$((LOG_BEFORE_TEST + 1))" "${SI_LOG}" 2>/dev/null | grep -E '\[TC14-MISSING\].*dev-A' >/dev/null; then
         DEV_A_FOUND=true
         break
     fi
@@ -42,7 +42,7 @@ post_event "${HB_URL}" '{"deviceId":"dev-B","status":"online"}' >/dev/null
 # The second heartbeat for dev-B resets the non-occurrence window before it expires
 sleep 5
 # dev-B should not have alerted yet in new log lines (5s after second heartbeat, window is 15s)
-if tail -n +"$((LOG_BEFORE_T3 + 1))" "${SI_LOG}" 2>/dev/null | grep -qE '\[TC14-MISSING\].*dev-B'; then
+if tail -n +"$((LOG_BEFORE_T3 + 1))" "${SI_LOG}" 2>/dev/null | grep -E '\[TC14-MISSING\].*dev-B' >/dev/null; then
     log_fail "T3: dev-B alerted too early (second heartbeat should have reset window)"
 else
     log_pass "T3: dev-B correctly not alerted yet (window reset by second heartbeat)"
@@ -54,7 +54,7 @@ post_event "${HB_URL}" '{"deviceId":"dev-C","status":"online"}' >/dev/null
 log_info "  Waiting 25s for dev-C non-occurrence..."
 DEV_C_FOUND=false
 for i in $(seq 1 25); do
-    if tail -n +"$((LOG_BEFORE_T4 + 1))" "${SI_LOG}" 2>/dev/null | grep -qE '\[TC14-MISSING\].*dev-C'; then
+    if tail -n +"$((LOG_BEFORE_T4 + 1))" "${SI_LOG}" 2>/dev/null | grep -E '\[TC14-MISSING\].*dev-C' >/dev/null; then
         DEV_C_FOUND=true
         break
     fi

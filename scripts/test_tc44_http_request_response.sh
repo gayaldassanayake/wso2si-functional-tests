@@ -11,7 +11,7 @@ require_si_running
 TRIGGER_URL="http://localhost:${PORT_TC44}/TC44_HttpRequestResponse/TriggerStream"
 
 log_info "T1: Wait for TC44 app to start"
-assert_log_contains "T1: TC44 app deployed" 'TC44_HttpRequestResponse.*deployed successfully' 30
+redeploy_app "TC44_HttpRequestResponse.siddhi" TC44_HttpRequestResponse || { print_summary; exit 1; }
 
 log_info "T2: POST to TriggerStream — fires http-request to http-service echo endpoint"
 post_event "${TRIGGER_URL}" '{"name":"Sigma","value":3.14}' >/dev/null
