@@ -27,7 +27,7 @@ require_mongo_installer_artifacts() {
 MONGO_COLLECTION="TC54_MongoStore"
 URL="http://localhost:${PORT_TC54}/TC54_MongoStore/CustomerStream"
 
-require_mongo_installer_artifacts
+require_mongo_installer_artifacts || { print_summary; exit 1; }
 
 log_info "T2: Wait for TC54 MongoDB store app to start"
 if ! redeploy_app "TC54_MongoStore.siddhi" TC54_MongoStore; then

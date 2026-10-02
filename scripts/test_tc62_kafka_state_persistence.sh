@@ -128,7 +128,7 @@ find "${SI_HOME}" -type d -name "${APP_NAME}" -path '*siddhi-app-persistence*' -
 docker exec "${KAFKA_CONTAINER}" kafka-topics --bootstrap-server localhost:9092 \
     --create --topic "${TOPIC}" --partitions 4 --replication-factor 1 >/dev/null 2>&1 || true
 
-cp "${DEPLOYMENT_YAML}" "${BACKUP_YAML}"
+cp "${DEPLOYMENT_YAML}" "${BACKUP_YAML}" || { echo -e "${RED}[ERROR]${NC} Could not back up ${DEPLOYMENT_YAML}; not patching it"; exit 1; }
 perl -0pi -e 's/(state\.persistence:\n  enabled: )false/${1}true/' "${DEPLOYMENT_YAML}"
 if ! { grep -A2 '^state.persistence:' "${DEPLOYMENT_YAML}" | grep -q 'enabled: true' &&
         grep -A2 '^state.persistence:' "${DEPLOYMENT_YAML}" | grep -q 'intervalInMin: 1'; }; then

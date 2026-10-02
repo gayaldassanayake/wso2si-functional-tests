@@ -27,6 +27,7 @@ helm upgrade "${K8S_RELEASE_NAME}" "${HELM_SI_CHART}" \
     --set wso2.gatewayApi.rateLimit.enabled=false \
     --set "wso2.deployment.hostname=${K8S_HOSTNAME}" \
     -n "${NS}" 2>&1
+[[ $? -eq 0 ]] || { log_fail "T0: helm upgrade enabling backendTLS failed"; print_summary; exit 1; }
 
 sleep 5  # allow Kubernetes to process the new resources
 
@@ -77,5 +78,6 @@ helm upgrade "${K8S_RELEASE_NAME}" "${HELM_SI_CHART}" \
     --set wso2.gatewayApi.rateLimit.enabled=false \
     --set "wso2.deployment.hostname=${K8S_HOSTNAME}" \
     -n "${NS}" >/dev/null 2>&1
+[[ $? -eq 0 ]] || log_fail "Restoring the release (backendTLS disabled) failed; the cluster still has it enabled"
 
 print_summary; tc_exit_code

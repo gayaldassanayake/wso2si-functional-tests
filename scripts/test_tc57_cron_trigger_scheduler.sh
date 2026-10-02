@@ -12,10 +12,17 @@ APP_B="TC57_CronTriggerB.siddhi"
 PID_FILE="${SI_HOME}/wso2/server/runtime.pid"
 QUARTZ_WORKER="DefaultQuartzScheduler_Worker"
 
+# Prints the number of Quartz worker threads, or -1 when the thread dump
+# can't be taken (a jstack from another JDK, a stale PID), so a failed dump is
+# never mistaken for "no workers".
 quartz_worker_count() {
-    local pid
+    local pid dump
     pid=$(cat "${PID_FILE}" 2>/dev/null) || { echo -1; return; }
-    jstack "${pid}" 2>/dev/null | grep -c "\"${QUARTZ_WORKER}" || true
+    if ! dump=$(jstack "${pid}" 2>/dev/null) || ! grep -q '^"main"' <<< "${dump}"; then
+        echo -1
+        return
+    fi
+    grep -c "\"${QUARTZ_WORKER}" <<< "${dump}" || true
 }
 
 LOG_OFFSET=0
@@ -74,8 +81,10 @@ log_info "T3: Quartz worker threads exit once no cron job is left"
 mark_log
 undeploy_app "${APP_B}"
 wait_new_log 'TC57_CronTriggerB undeployed successfully' 20 || log_fail "T3: TC57_CronTriggerB was not undeployed"
-if [[ "${BASELINE_WORKERS}" != "0" ]]; then
-    log_skip "T3: ${BASELINE_WORKERS} ${QUARTZ_WORKER} threads existed before TC57 (another app uses cron, or jstack failed)"
+if [[ "${BASELINE_WORKERS}" == "-1" ]]; then
+    log_fail "T3: could not take a thread dump of SI (PID file ${PID_FILE}); use a jstack from the JDK running SI"
+elif [[ "${BASELINE_WORKERS}" != "0" ]]; then
+    log_skip "T3: ${BASELINE_WORKERS} ${QUARTZ_WORKER} threads existed before TC57 (another app uses cron)"
 else
     WORKERS=-1
     for _ in $(seq 1 15); do

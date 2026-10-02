@@ -99,9 +99,14 @@ wait_table_rows() {
 }
 ora_errors() { new_log | grep -E 'ORA-[0-9]{5}' | head -3 || true; }
 
-oracle_query "DROP TABLE IF EXISTS ${TABLE} PURGE;" >/dev/null
+drop_rc=0
+drop_out=$(oracle_query "DROP TABLE IF EXISTS ${TABLE} PURGE;") || drop_rc=$?
+if [[ "${drop_rc}" -ne 0 || -n "${drop_out//[[:space:]]/}" ]]; then
+    echo -e "${RED}[ERROR]${NC} Could not drop ${TABLE} before the test: ${drop_out}"
+    exit 1
+fi
 
-cp "${DEPLOYMENT_YAML}" "${BACKUP_YAML}"
+cp "${DEPLOYMENT_YAML}" "${BACKUP_YAML}" || { echo -e "${RED}[ERROR]${NC} Could not back up ${DEPLOYMENT_YAML}; not patching it"; exit 1; }
 export TC60_DS='    - name: ERROR_STORE_DB
       description: "Error store on Oracle (TC60)"
       definition:

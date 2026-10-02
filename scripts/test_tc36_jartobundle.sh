@@ -16,7 +16,13 @@ trap cleanup EXIT
 
 INPUT_COUNT=$(find "${TOOLS_PACK_HOME}/lib/" -maxdepth 1 -name "*.jar" | wc -l | tr -d ' ')
 log_info "T1: convert ${INPUT_COUNT} JARs from lib/ to OSGi bundles"
-sh "${TOOLS_PACK_HOME}/bin/jartobundle.sh" "${TOOLS_PACK_HOME}/lib/" "${OUT_DIR}/" 2>&1
+TOOL_RC=0
+sh "${TOOLS_PACK_HOME}/bin/jartobundle.sh" "${TOOLS_PACK_HOME}/lib/" "${OUT_DIR}/" 2>&1 || TOOL_RC=$?
+if [[ "${TOOL_RC}" -eq 0 ]]; then
+    log_pass "T1: jartobundle.sh exited 0"
+else
+    log_fail "T1: jartobundle.sh exited ${TOOL_RC} while converting ${TOOLS_PACK_HOME}/lib/"
+fi
 # jartobundle.sh only converts JARs that are NOT already OSGi bundles; packs that
 # ship pre-bundled JARs produce fewer output files than input files.  Assert ≥ 1.
 OUT_COUNT=$(find "${OUT_DIR}" -maxdepth 1 -name "*.jar" | wc -l | tr -d ' ')

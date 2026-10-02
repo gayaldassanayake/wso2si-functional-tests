@@ -24,7 +24,7 @@ else
     # Not a skip: the driver is installed but too old, which breaks CDC listening at
     # runtime with a bare NoSuchMethodError. Naming it here is the point of TC48.
     log_fail "T1: pgjdbc ${PG_VER:-unknown} lacks ChainedCommonStreamBuilder.withAutomaticFlush — Debezium 3.6.1 needs pgjdbc ${PGJDBC_MIN_VERSION}+ (siddhi-io-cdc PR #101). CDC listening will fail with NoSuchMethodError."
-    print_summary; tc_exit_code
+    print_summary; exit 1
 fi
 
 cleanup() {

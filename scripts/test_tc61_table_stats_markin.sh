@@ -107,7 +107,7 @@ send_range 1 250
 
 # The RDBMS table blocks and retries while MySQL is down, so the outage itself raises no errors.
 log_info "T3: MySQL outage and recovery"
-docker stop "${C}" >/dev/null
+docker stop "${C}" >/dev/null || log_fail "T3: could not stop ${C}; the outage was not exercised"
 send_range 251 350
 docker start "${C}" >/dev/null
 wait_mysql || log_fail "T3: MySQL did not come back"

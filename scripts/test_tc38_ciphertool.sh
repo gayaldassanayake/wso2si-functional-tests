@@ -29,7 +29,7 @@ if echo "${ENCRYPT_OUT}" | grep -q "Encrypted value"; then
     log_pass "T1: encryption output contains 'Encrypted value'"
 else
     log_fail "T1: encryption failed — no 'Encrypted value' in output"
-    print_summary; tc_exit_code
+    print_summary; exit 1
 fi
 
 CIPHER=$(echo "${ENCRYPT_OUT}" | grep "Encrypted value" | sed 's/.*Encrypted value : //')

@@ -3,7 +3,9 @@
 # Source this file at the top of each test script:
 #   source "$(dirname "$0")/lib/common.sh"
 
-set -euo pipefail
+# No errexit: a failed assertion returns 1, and the test must keep going so the
+# remaining checks run and print_summary reports every failure.
+set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SUITE_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -146,7 +148,10 @@ deploy_app() {
         echo -e "${RED}[ERROR]${NC} Siddhi app not found: ${src}"
         exit 1
     fi
-    cp "${src}" "${SI_SIDDHI_DIR}/"
+    if ! cp "${src}" "${SI_SIDDHI_DIR}/"; then
+        echo -e "${RED}[ERROR]${NC} Could not copy ${src} to ${SI_SIDDHI_DIR}"
+        exit 1
+    fi
     log_info "Deployed ${app_file}. Waiting ${DEPLOY_WAIT_SECONDS}s for SI pickup..."
     sleep "${DEPLOY_WAIT_SECONDS}"
 }
@@ -829,8 +834,8 @@ drop_pg_replication_slots() {
     done
 }
 
-# common.sh runs under `set -e`, so these helpers must never return non-zero:
-# a bare failing assignment in a test would kill the script with no output.
+# These helpers never return non-zero, so a test can use them in a bare
+# assignment without the result depending on the shell's errexit setting.
 pgjdbc_jar() {
     local j=""
     j=$(ls "${SI_HOME}/lib/postgresql-"*.jar 2>/dev/null | head -1) || true

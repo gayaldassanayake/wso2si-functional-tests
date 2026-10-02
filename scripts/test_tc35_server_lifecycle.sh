@@ -36,7 +36,10 @@ log_since_start() {
 }
 
 log_info "T1: server.sh start — server must start cleanly on the current JDK"
-sh "${TOOLS_PACK_HOME}/bin/server.sh" start 2>&1
+if ! sh "${TOOLS_PACK_HOME}/bin/server.sh" start 2>&1; then
+    log_fail "T1: server.sh start exited non-zero"
+    print_summary; exit 1
+fi
 
 ELAPSED=0
 STARTED=false

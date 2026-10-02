@@ -61,7 +61,9 @@ rm -rf "${PROBE_TMPDIR}"
 
 BEFORE=$(wc -l < "${BUNDLES_INFO}")
 log_info "T1: osgi-lib.sh server — register new JAR in server runtime bundles.info"
-sh "${TOOLS_PACK_HOME}/bin/osgi-lib.sh" server 2>&1
+TOOL_RC=0
+sh "${TOOLS_PACK_HOME}/bin/osgi-lib.sh" server 2>&1 || TOOL_RC=$?
+[[ "${TOOL_RC}" -eq 0 ]] || log_fail "T1: osgi-lib.sh server exited ${TOOL_RC}"
 AFTER=$(wc -l < "${BUNDLES_INFO}")
 
 if grep -q "tc21.test.probe" "${BUNDLES_INFO}"; then

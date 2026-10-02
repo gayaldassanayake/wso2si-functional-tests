@@ -54,7 +54,7 @@ for topic in si-test-tc56-input si-test-tc56-output; do
         --create --topic "${topic}" --partitions 1 --replication-factor 1 --if-not-exists >/dev/null 2>&1 || true
 done
 
-cp "${DEPLOYMENT_YAML}" "${BACKUP_YAML}"
+cp "${DEPLOYMENT_YAML}" "${BACKUP_YAML}" || { echo -e "${RED}[ERROR]${NC} Could not back up ${DEPLOYMENT_YAML}; not patching it"; exit 1; }
 cat >> "${DEPLOYMENT_YAML}" <<'EOF'
 
 siddhi:
