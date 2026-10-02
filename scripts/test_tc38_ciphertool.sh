@@ -4,6 +4,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
 CURRENT_TC="TC38"
+require_tools_pack
 
 require_file "${TOOLS_PACK_HOME}/bin/ciphertool.sh"
 

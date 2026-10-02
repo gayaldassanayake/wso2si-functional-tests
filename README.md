@@ -54,7 +54,7 @@ A self-contained regression test suite for WSO2 Streaming Integrator (SI) 4.3.x 
 
 | Requirement | Details |
 |---|---|
-| WSO2 SI 4.3.2 binary | Installed and configured. The server must be startable before running tests. |
+| WSO2 SI pack under test | Extracted and configured. The server must be startable before running tests. |
 | `bash` ≥ 3.2 | macOS system bash is sufficient. |
 | `curl` | For posting events to SI HTTP sources and querying the Store API. |
 | `nc` (netcat) | Pre-flight check that SI ports are open. Available by default on macOS and most Linux distros. |
@@ -154,7 +154,7 @@ wso2si-functional-tests/
 
 ```bash
 # 1. Set your SI installation path
-export SI_HOME=/path/to/wso2si-4.3.2
+export SI_HOME=/path/to/wso2si-<version>
 
 # 2. Start Docker infrastructure (Kafka + Zookeeper + MySQL)
 ./scripts/setup.sh --all
@@ -176,8 +176,8 @@ ${SI_HOME}/bin/server.sh
 TC35 is standalone and must run before starting the SI server. TC36–TC38 test distribution tools:
 
 ```bash
-# 1. Point to a valid SI installation with distribution tools
-export TOOLS_PACK_HOME=/path/to/wso2si-4.4.0-SNAPSHOT
+# 1. Point to the pack under test (TOOLS_PACK_HOME defaults to SI_HOME)
+export SI_HOME=/path/to/wso2si-<version>
 
 # 2. Run the standalone server lifecycle test (stop any running SI server first)
 bash scripts/test_tc35_server_lifecycle.sh
@@ -223,7 +223,7 @@ Edit `config.env` before running tests, or export variables inline:
 nano config.env   # set SI_HOME
 
 # Or pass inline per run
-SI_HOME=/opt/wso2si-4.3.2 ./run_all_tests.sh
+SI_HOME=/opt/wso2si-<version> ./run_all_tests.sh
 ```
 
 Key settings:
@@ -232,7 +232,8 @@ Key settings:
 
 | Variable | Default | Description |
 |---|---|---|
-| `SI_HOME` | `/path/to/wso2si-4.3.2` | **Must be set.** Path to your installed SI binary. |
+| `SI_HOME` | none | **Must be set.** The extracted pack under test. The runner and every SI test check that the server on `SI_HTTP_PORT` was started from this pack. |
+| `TOOLS_PACK_HOME` | `${SI_HOME}` | Pack that TC35–TC38 and TC53 inspect. Set it only to check a different pack on purpose; the runner warns when it differs. |
 | `SI_SIDDHI_DIR` | `${SI_HOME}/wso2/server/deployment/siddhi-files` | Where SI picks up Siddhi apps. |
 | `SI_LOG` | `${SI_HOME}/wso2/server/logs/carbon.log` | SI server log file for assertions. |
 | `SI_HTTP_PORT` | `9090` | SI management HTTP port. |
@@ -349,7 +350,7 @@ These tests validate the updated `helm-si` chart's Gateway API support using `he
 
 TC35 is **standalone** — it starts and stops the SI server itself and must run *before* the main SI instance is started.
 
-TC36–TC38 test the WSO2 SI distribution tools. They require `TOOLS_PACK_HOME` to point at a valid SI installation with `bin/jartobundle.sh`, `bin/osgi-lib.sh`, and `bin/ciphertool.sh`.
+TC36–TC38 test the WSO2 SI distribution tools. They inspect `TOOLS_PACK_HOME` (defaults to `SI_HOME`), which must contain `bin/jartobundle.sh`, `bin/osgi-lib.sh`, and `bin/ciphertool.sh`.
 
 **Note:** `osgi-lib.sh` and `ciphertool.sh` reject JDK versions above 11. TC37 and TC38 automatically override `JAVA_HOME` to a JDK 11 installation at `/Library/Java/JavaVirtualMachines/graalvm-ce-java11-22.3.0/Contents/Home` when the active JDK is newer. If that path does not exist, the test self-skips.
 
@@ -662,14 +663,14 @@ bash scripts/test_tc32_k8s_https_routing.sh
 TC35 is standalone — run it **before** starting the SI server:
 
 ```bash
-export TOOLS_PACK_HOME=/path/to/wso2si-4.4.0
+export SI_HOME=/path/to/wso2si-<version>
 bash scripts/test_tc35_server_lifecycle.sh
 ```
 
 TC36–TC38 test distribution tools and run while SI is **not** running (they don't need a live server):
 
 ```bash
-export TOOLS_PACK_HOME=/path/to/wso2si-4.4.0
+export SI_HOME=/path/to/wso2si-<version>
 ./run_all_tests.sh --with-tools
 ```
 
@@ -967,7 +968,11 @@ For TC07 and TC11 (RDBMS-backed tables), tests run SQL directly inside the MySQL
 assert_mysql_count "3 rows in MySQL" "InventoryTable" 3
 ```
 
-**Negative assertions** use two techniques depending on context. The simpler approach (`assert_log_not_contains`) sleeps briefly then checks the recent log tail for absence. Where stale log entries from prior runs could cause false passes (e.g., TC14 T3, TC18 T3), a log-baseline approach is used instead: record the line count before the action (`LOG_BASELINE=$(wc -l < "${SI_LOG}")`), then check only new lines (`tail -n +"$((LOG_BASELINE + 1))"`). Both are used in pattern tests (TC05, TC13, TC14, TC18) to confirm non-matching events produce no incorrect output.
+**Negative assertions** (`assert_log_not_contains`) sleep briefly, then check the log since the mark for absence. Some older tests (TC14, TC18, TC39, TC48, TC55–TC64) keep their own line or byte baselines, which work the same way.
+
+**Results and exit codes.** A failed assertion records a failure and the test keeps going (`common.sh` does not use `set -e`), so every check runs and `print_summary` lists all failures. A test exits 0 when nothing failed, 1 when something failed, 77 (`SKIP_EXIT_CODE`) when a prerequisite such as a JDBC driver or extension is missing, and 78 (`PARTIAL_SKIP_EXIT_CODE`) when every check it ran passed but some were skipped with `log_skip`. `run_all_tests.sh` reports exit 77, and groups it turns off because their jars are missing, as SKIPPED with the reason, and lists every failed and skipped TC at the end. Tests that exit 78 count as passed and are listed as "PASSED, SOME CHECKS SKIPPED". Pass `--fail-on-skip` to make any skip, whole or partial, fail the run, which is what a release gate wants.
+
+**Pack identity.** `SI_HOME` is required. The runner prints the pack version from `bin/version.txt`, and the runner and `require_si_running` check that the server on `SI_HTTP_PORT` is the one started from `SI_HOME` (its `wso2/server/runtime.pid` owns the port), so a second pack on the same machine can't be tested by mistake. `TOOLS_PACK_HOME` defaults to `SI_HOME`.
 
 ---
 

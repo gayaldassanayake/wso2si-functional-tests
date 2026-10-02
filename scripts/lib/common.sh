@@ -10,6 +10,7 @@ SUITE_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # Load configuration
 source "${SUITE_ROOT}/config.env"
+source "${SCRIPT_DIR}/pack.sh"
 
 # ─── Counters ────────────────────────────────────────────────────────────────
 PASS_COUNT=0
@@ -62,11 +63,34 @@ tc_exit_code() {
 
 # ─── Pre-flight checks ───────────────────────────────────────────────────────
 require_si_running() {
+    local problem
+    problem=$(pack_problem "${SI_HOME}")
+    if [[ -n "${problem}" ]]; then
+        echo -e "${RED}[ERROR]${NC} ${problem}"
+        exit 1
+    fi
     if ! nc -z localhost "${SI_HTTP_PORT}" 2>/dev/null; then
         echo -e "${RED}[ERROR]${NC} SI is not running on port ${SI_HTTP_PORT}."
         echo "  Start it with: \${SI_HOME}/bin/server.sh"
         exit 1
     fi
+    problem=$(si_server_mismatch)
+    if [[ -n "${problem}" ]]; then
+        echo -e "${RED}[ERROR]${NC} The SI on port ${SI_HTTP_PORT} is not the pack under test: ${problem}"
+        echo "  SI_HOME: ${SI_HOME}"
+        exit 1
+    fi
+}
+
+# For tests that inspect TOOLS_PACK_HOME without a running server (TC36–TC38, TC53).
+require_tools_pack() {
+    local problem
+    problem=$(pack_problem "${TOOLS_PACK_HOME}")
+    if [[ -n "${problem}" ]]; then
+        echo -e "${RED}[ERROR]${NC} TOOLS_PACK_HOME: ${problem}"
+        exit 1
+    fi
+    log_info "Inspecting $(pack_version "${TOOLS_PACK_HOME}") at ${TOOLS_PACK_HOME}"
 }
 
 require_docker_container() {

@@ -4,6 +4,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
 CURRENT_TC="TC37"
+require_tools_pack
 
 require_file "${TOOLS_PACK_HOME}/bin/osgi-lib.sh"
 
@@ -24,6 +25,15 @@ BUNDLES_INFO="${TOOLS_PACK_HOME}/wso2/server/configuration/org.eclipse.equinox.s
 TEST_JAR="${TOOLS_PACK_HOME}/lib/tc21-test-probe.jar"
 
 require_file "${BUNDLES_INFO}"
+if nc -z localhost "${SI_HTTP_PORT}" 2>/dev/null && [[ -z "$(si_server_mismatch)" && "${TOOLS_PACK_HOME}" == "${SI_HOME}" ]]; then
+    log_warn "osgi-lib.sh runs against the pack of the running server; bundles.info is restored from a copy afterwards"
+fi
+BUNDLES_INFO_BACKUP="${BUNDLES_INFO}.tc37.bak"
+if [[ -f "${BUNDLES_INFO_BACKUP}" ]]; then
+    echo -e "${RED}[ERROR]${NC} ${BUNDLES_INFO_BACKUP} exists from an interrupted TC37 run; restore it to bundles.info first"
+    exit 1
+fi
+cp "${BUNDLES_INFO}" "${BUNDLES_INFO_BACKUP}" || { echo -e "${RED}[ERROR]${NC} Could not back up ${BUNDLES_INFO}"; exit 1; }
 
 # Remove any leftover tc21.test.probe entry from a prior interrupted run so that
 # osgi-lib.sh always sees it as a new (unregistered) bundle.
@@ -34,9 +44,8 @@ grep -v "tc21.test.probe" "${BUNDLES_INFO}" > "${BUNDLES_INFO}.tmp" \
 cleanup() {
     rm -f "${TEST_JAR}"
     rm -rf "${PROBE_TMPDIR:-}"
-    # Remove the tc21.test.probe entry from bundles.info (portable grep -v)
-    grep -v "tc21.test.probe" "${BUNDLES_INFO}" > "${BUNDLES_INFO}.tmp" \
-        && mv "${BUNDLES_INFO}.tmp" "${BUNDLES_INFO}" || true
+    # osgi-lib.sh rewrites bundles.info for every jar in lib/, so restore the whole file
+    [[ -f "${BUNDLES_INFO_BACKUP}" ]] && mv "${BUNDLES_INFO_BACKUP}" "${BUNDLES_INFO}"
 }
 trap cleanup EXIT
 

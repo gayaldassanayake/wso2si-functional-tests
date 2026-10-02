@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# run_all_tests.sh — WSO2 SI 4.3.2 Functional Test Suite Orchestrator
+# run_all_tests.sh — WSO2 SI Functional Test Suite Orchestrator
 #
 # Usage:
 #   ./run_all_tests.sh                    # Core tests (no external infra)
@@ -24,10 +24,10 @@
 #
 # Prerequisites:
 #   1. SI server must be running: ${SI_HOME}/bin/server.sh
-#   2. Set SI_HOME: export SI_HOME=/path/to/wso2si-4.3.2
-#      or edit config.env
+#   2. Set SI_HOME to the pack under test: export SI_HOME=/path/to/wso2si-<version>
+#      (required; TOOLS_PACK_HOME defaults to it)
 #   3. For --with-kafka, --with-mysql, --with-rabbitmq, --with-redis: run ./scripts/setup.sh first
-#   4. For --with-tools: set TOOLS_PACK_HOME to the SI pack under test
+#   4. --with-tools inspects TOOLS_PACK_HOME, which defaults to SI_HOME
 #      TC35 (server lifecycle) is standalone — run it separately before starting SI
 #   5. TC56 (Kafka deployment.yaml config) is standalone — run it with SI stopped:
 #      SI_HOME=... bash scripts/test_tc56_kafka_deployment_config.sh
@@ -40,6 +40,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "${SCRIPT_DIR}/config.env"
+source "${SCRIPT_DIR}/scripts/lib/pack.sh"
 
 WITH_KAFKA=false
 WITH_MYSQL=false
@@ -134,8 +135,20 @@ skip_group() {
 }
 
 # ─── Pre-flight: SI must be running ──────────────────────────────────────────
-echo -e "${BOLD}WSO2 SI 4.3.2 Functional Test Suite${NC}"
-echo "SI_HOME: ${SI_HOME}"
+echo -e "${BOLD}WSO2 SI Functional Test Suite${NC}"
+
+PACK_PROBLEM=$(pack_problem "${SI_HOME}")
+if [[ -n "${PACK_PROBLEM}" ]]; then
+    echo -e "${RED}[ERROR]${NC} SI_HOME: ${PACK_PROBLEM}"
+    exit 1
+fi
+echo "Pack under test: $(pack_version "${SI_HOME}")"
+echo "SI_HOME:         ${SI_HOME}"
+if [[ "${TOOLS_PACK_HOME}" != "${SI_HOME}" ]]; then
+    TOOLS_PROBLEM=$(pack_problem "${TOOLS_PACK_HOME}")
+    echo -e "${YELLOW}[WARN]${NC} TOOLS_PACK_HOME differs from SI_HOME; TC35–TC38 and TC53 inspect it instead:"
+    echo "       $(pack_version "${TOOLS_PACK_HOME}")${TOOLS_PROBLEM:+ (${TOOLS_PROBLEM})} at ${TOOLS_PACK_HOME}"
+fi
 echo ""
 
 if ! nc -z localhost "${SI_HTTP_PORT}" 2>/dev/null; then
@@ -144,7 +157,12 @@ if ! nc -z localhost "${SI_HTTP_PORT}" 2>/dev/null; then
     echo "  Then wait for 'WSO2 Streaming Integrator started' in the console."
     exit 1
 fi
-echo -e "${GREEN}[OK]${NC} SI server is running on port ${SI_HTTP_PORT}"
+SERVER_PROBLEM=$(si_server_mismatch)
+if [[ -n "${SERVER_PROBLEM}" ]]; then
+    echo -e "${RED}[ERROR]${NC} The SI on port ${SI_HTTP_PORT} is not the pack under test: ${SERVER_PROBLEM}"
+    exit 1
+fi
+echo -e "${GREEN}[OK]${NC} SI server from SI_HOME is running on port ${SI_HTTP_PORT}"
 
 # Verify Store API
 if nc -z localhost "${SI_STORE_API_PORT}" 2>/dev/null; then
