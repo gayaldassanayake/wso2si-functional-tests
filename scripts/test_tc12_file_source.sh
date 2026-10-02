@@ -7,11 +7,12 @@ CURRENT_TC="TC12"
 
 require_si_running
 
-# Ensure the file exists (deploy.sh creates it, but double-check)
-if [[ ! -f "${FILE_SOURCE_PATH}" ]]; then
-    touch "${FILE_SOURCE_PATH}"
-    log_info "Created file source: ${FILE_SOURCE_PATH}"
-fi
+# Start from an empty input file and a fresh FileSalesTable, so lines and rows
+# from earlier runs can't satisfy the checks below.
+undeploy_app "TC12_FileSource.siddhi"
+: > "${FILE_SOURCE_PATH}"
+deploy_app "TC12_FileSource.siddhi"
+assert_app_deployed "TC12 app started" TC12_FileSource 30
 
 log_info "T1: Append one CSV line to file - SI should pick it up"
 echo "chocolate,50.0" >> "${FILE_SOURCE_PATH}"
@@ -39,9 +40,11 @@ assert_store_count "T3: marshmallow in FileSalesTable" "TC12_FileSource" \
 log_info "T4: Append a line for an existing product (toffee) - upsert in table"
 echo "toffee,99.9" >> "${FILE_SOURCE_PATH}"
 sleep 5
-# Toffee should still be present (upserted, not duplicated)
+# Toffee should still be present (upserted, not duplicated), with the new amount
 assert_store_count "T4: toffee still present after upsert" "TC12_FileSource" \
     "from FileSalesTable select * having name == 'toffee'" 1
+assert_store_count "T4: toffee totalAmount updated to 99.9" "TC12_FileSource" \
+    "from FileSalesTable select * having name == 'toffee' and totalAmount == 99.9" 1
 
 log_info "T5: Append a new product"
 echo "fudge,33.3" >> "${FILE_SOURCE_PATH}"

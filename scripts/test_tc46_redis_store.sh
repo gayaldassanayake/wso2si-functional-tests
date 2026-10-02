@@ -18,6 +18,7 @@ fi
 URL="http://localhost:${PORT_TC46}/TC46_RedisStore/SessionStream"
 
 log_info "T1: Wait for TC46 Redis store app to start"
+redis_cli FLUSHDB >/dev/null || log_warn "Could not flush Redis; DBSIZE checks may count earlier runs' keys"
 redeploy_app "TC46_RedisStore.siddhi" TC46_RedisStore || { print_summary; exit 1; }
 
 log_info "T2: POST 3 session events"

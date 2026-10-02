@@ -19,6 +19,7 @@ URL="http://localhost:${PORT_TC07}/TC07_MySQLPersist/InventoryStream"
 # Redeploy fresh: MySQL table starts in known state and the HTTP source is
 # guaranteed to be bound before we start sending events.
 undeploy_app "TC07_MySQLPersist.siddhi"
+mysql_query "DELETE FROM InventoryTable;" >/dev/null || true
 deploy_app   "TC07_MySQLPersist.siddhi"
 assert_app_deployed "app deployed" TC07_MySQLPersist 30
 

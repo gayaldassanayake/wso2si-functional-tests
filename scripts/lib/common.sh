@@ -705,6 +705,13 @@ rabbitmq_publish() {
         payload="${payload}" 2>/dev/null
 }
 
+# Drop every message left in a queue by earlier runs.
+rabbitmq_purge() {
+    local queue="$1"
+    docker exec "${RABBITMQ_CONTAINER}" rabbitmqctl purge_queue "${queue}" >/dev/null 2>&1 ||
+        log_warn "Could not purge RabbitMQ queue ${queue}"
+}
+
 # Consume (get) up to N messages from a RabbitMQ queue. Returns raw rabbitmqadmin table output.
 rabbitmq_get() {
     local queue="$1"

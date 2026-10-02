@@ -37,3 +37,15 @@ si_server_mismatch() {
     return 0
 }
 
+# Prints the version of a dependency that the pack's Extension Installer
+# installs for an extension (from extensionDependencies.json), or nothing.
+#   ext_dep_version "${SI_HOME}" cdc-mongodb siddhi-io-cdc
+ext_dep_version() {
+    local json="$1/wso2/server/resources/extensionsInstaller/extensionDependencies.json"
+    [[ -f "${json}" ]] || return 0
+    python3 - "${json}" "$2" "$3" <<'PY' 2>/dev/null || true
+import json, sys
+deps = json.load(open(sys.argv[1])).get(sys.argv[2], {}).get("dependencies", [])
+print(next((d.get("version", "") for d in deps if d.get("name") == sys.argv[3]), ""))
+PY
+}

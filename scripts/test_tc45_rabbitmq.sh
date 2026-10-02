@@ -19,6 +19,7 @@ IN_ROUTING_KEY="si-test-rmq-in-q"
 OUT_QUEUE="si-test-rmq-out-q"
 
 log_info "T1: Wait for TC45 RabbitMQ app to start"
+rabbitmq_purge "${OUT_QUEUE}"
 redeploy_app "TC45_RabbitMQPassThrough.siddhi" TC45_RabbitMQPassThrough || { print_summary; exit 1; }
 
 log_info "T2: Publish 2 events — cake(50.0) above filter, toffee(5.0) below"

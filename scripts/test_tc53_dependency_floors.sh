@@ -52,16 +52,19 @@ assert_floor "T3: apache-mime4j" '^apache-mime4j-core$' "${MIME4J_MIN_VERSION}"
 
 log_info "T4: extension installer log4j jars exist and are at or above ${LOG4J_MIN_VERSION}"
 installer="${TOOLS_PACK_HOME}/wso2/tools/extension-installer"
-missing="" old=""
+missing="" old="" checked=0
 for script in "${installer}/bin/extension-installer" "${installer}/bin/extension-installer.bat"; do
-    for jar in $(grep -oE 'log4j-[a-z0-9-]+-[0-9][0-9.]*\.jar' "${script}" | sort -u); do
+    for jar in $(grep -oE 'log4j-[a-z0-9-]+-[0-9][0-9.]*\.jar' "${script}" 2>/dev/null | sort -u); do
+        (( checked++ )) || true
         [[ -f "${installer}/lib/${jar}" ]] || missing+=" $(basename "${script}"):${jar}"
         v=$(echo "${jar}" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
         version_ge "${v}" "${LOG4J_MIN_VERSION}" || old+=" ${jar}"
     done
 done
-if [[ -z "${missing}${old}" ]]; then
-    log_pass "T4: installer classpath log4j jars present and >= ${LOG4J_MIN_VERSION}"
+if (( checked == 0 )); then
+    log_fail "T4: no log4j jars named in ${installer}/bin/extension-installer{,.bat}; the check found nothing to inspect"
+elif [[ -z "${missing}${old}" ]]; then
+    log_pass "T4: installer classpath log4j jars present and >= ${LOG4J_MIN_VERSION} (${checked} checked)"
 else
     [[ -n "${missing}" ]] && log_fail "T4: classpath jars not in lib/:${missing}"
     [[ -n "${old}" ]] && log_fail "T4: below ${LOG4J_MIN_VERSION}:${old}"
@@ -118,9 +121,13 @@ EOF
     fi
 fi
 
+lib_jars=()
+for jar in "${TOOLS_PACK_HOME}"/lib/*.jar; do [[ -f "${jar}" ]] && lib_jars+=("${jar}"); done
+(( ${#lib_jars[@]} > 0 )) || log_fail "T8/T9: no jars in ${TOOLS_PACK_HOME}/lib; nothing to inspect"
+
 log_info "T8: no lib/ bundle imports Gson's internal package"
 gson_internal=""
-for jar in "${TOOLS_PACK_HOME}"/lib/*.jar; do
+for jar in ${lib_jars[@]+"${lib_jars[@]}"}; do
     unzip -p "${jar}" META-INF/MANIFEST.MF 2>/dev/null | tr -d '\r\n ' | grep -q 'com\.google\.gson\.internal[;,"]' \
         && gson_internal+=" $(basename "${jar}")"
 done
@@ -132,7 +139,7 @@ fi
 
 log_info "T9: no lib/ bundle embeds its own Gson"
 gson_bundled=""
-for jar in "${TOOLS_PACK_HOME}"/lib/*.jar; do
+for jar in ${lib_jars[@]+"${lib_jars[@]}"}; do
     listing="$(unzip -Z1 "${jar}" 2>/dev/null)"
     grep -q '^com/google/gson/' <<<"${listing}" || continue
     case "$(basename "${jar}")" in
@@ -182,12 +189,15 @@ launchers=("${TOOLS_PACK_HOME}"/bin/bootstrap/org.wso2.carbon.launcher-*.jar)
 if [[ ! -f "${launchers[0]}" ]]; then
     log_fail "T11: no launcher jar in bin/bootstrap"
 else
-    missing_initial=""
+    missing_initial="" initial_count=0
     for entry in $(unzip -p "${launchers[0]}" launch.properties | tr -d '\\\r' \
             | grep -oE 'file:plugins/[^@,[:space:]]+\.jar'); do
+        (( initial_count++ )) || true
         [[ -f "${plugins}/${entry#file:plugins/}" ]] || missing_initial+=" ${entry#file:plugins/}"
     done
-    if [[ -z "${missing_initial}" ]]; then
+    if (( initial_count == 0 )); then
+        log_fail "T11: no file:plugins/*.jar entries found in launch.properties; the check found nothing to inspect"
+    elif [[ -z "${missing_initial}" ]]; then
         log_pass "T11: $(basename "${launchers[0]}") initial bundles all present in wso2/lib/plugins"
     else
         log_fail "T11: $(basename "${launchers[0]}") loads missing jars:${missing_initial}"

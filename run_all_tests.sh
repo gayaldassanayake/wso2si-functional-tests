@@ -206,12 +206,16 @@ _has_redis_extension() {
 }
 
 _has_mongodb_installer_artifacts() {
+    local cdc mongo
+    cdc="${CDC_VERSION:-$(ext_dep_version "${SI_HOME}" cdc-mongodb siddhi-io-cdc)}"
+    mongo=$(ext_dep_version "${SI_HOME}" mongodb mongodb-driver-sync)
+    [[ -n "${cdc}" && -n "${mongo}" ]] &&
     ls "${SI_HOME}/lib/"siddhi-store-mongodb-*.jar 2>/dev/null | grep -q . &&
-    ls "${SI_HOME}/lib/"siddhi-io-cdc-${CDC_VERSION}.jar 2>/dev/null | grep -q . &&
-    ls "${SI_HOME}/lib/"mongodb_driver_sync_5.11.1_*.jar 2>/dev/null | grep -q . &&
-    ls "${SI_HOME}/lib/"mongodb_driver_core_5.11.1_*.jar 2>/dev/null | grep -q . &&
-    ls "${SI_HOME}/lib/"bson_5.11.1_*.jar 2>/dev/null | grep -q . &&
-    ls "${SI_HOME}/lib/"bson_record_codec_5.11.1_*.jar 2>/dev/null | grep -q .
+    ls "${SI_HOME}/lib/"siddhi-io-cdc-${cdc}.jar 2>/dev/null | grep -q . &&
+    ls "${SI_HOME}/lib/"mongodb_driver_sync_${mongo}_*.jar 2>/dev/null | grep -q . &&
+    ls "${SI_HOME}/lib/"mongodb_driver_core_${mongo}_*.jar 2>/dev/null | grep -q . &&
+    ls "${SI_HOME}/lib/"bson_${mongo}_*.jar 2>/dev/null | grep -q . &&
+    ls "${SI_HOME}/lib/"bson_record_codec_${mongo}_*.jar 2>/dev/null | grep -q .
 }
 
 _has_wso2event_jars() {

@@ -9,13 +9,18 @@ require_si_running
 require_mongodb_running
 
 require_mongo_installer_artifacts() {
-    local pattern
+    local pattern mongo_version
+    mongo_version=$(ext_dep_version "${SI_HOME}" mongodb mongodb-driver-sync)
+    if [[ -z "${mongo_version}" ]]; then
+        log_fail "Could not read the mongodb-driver-sync version for 'mongodb' from the pack's extensionDependencies.json"
+        return 1
+    fi
     for pattern in \
         'siddhi-store-mongodb-*.jar' \
-        'mongodb_driver_sync_5.11.1_*.jar' \
-        'mongodb_driver_core_5.11.1_*.jar' \
-        'bson_5.11.1_*.jar' \
-        'bson_record_codec_5.11.1_*.jar'; do
+        "mongodb_driver_sync_${mongo_version}_*.jar" \
+        "mongodb_driver_core_${mongo_version}_*.jar" \
+        "bson_${mongo_version}_*.jar" \
+        "bson_record_codec_${mongo_version}_*.jar"; do
         if ! ls "${SI_HOME}/lib/"${pattern} 2>/dev/null | grep -q .; then
             log_fail "Required installer artifact is missing: ${pattern} in ${SI_HOME}/lib"
             return 1
@@ -30,6 +35,7 @@ URL="http://localhost:${PORT_TC54}/TC54_MongoStore/CustomerStream"
 require_mongo_installer_artifacts || { print_summary; exit 1; }
 
 log_info "T2: Wait for TC54 MongoDB store app to start"
+mongodb_eval "db.getCollection('${MONGO_COLLECTION}').drop()" >/dev/null || true
 if ! redeploy_app "TC54_MongoStore.siddhi" TC54_MongoStore; then
     print_summary
     exit 1

@@ -96,7 +96,7 @@ STATS=$(api "${API}/statistics" | python3 -c '
 import json, sys
 apps = json.load(sys.stdin)
 print(next((a.get("isStatEnabled", "") for a in apps if a.get("appName") == sys.argv[1]), ""))' "${APP_NAME}" 2>/dev/null || true)
-if [[ -n "${STATS}" && "${STATS}" != "OFF" ]]; then
+if [[ "${STATS}" == "BASIC" || "${STATS}" == "DETAIL" ]]; then
     log_pass "T1: statistics level is ${STATS}"
 else
     log_fail "T1: statistics not enabled for ${APP_NAME} (got '${STATS}')"

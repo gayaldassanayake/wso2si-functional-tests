@@ -12,6 +12,7 @@ trap cleanup EXIT
 
 log_info "T1: TC40 app started"
 undeploy_app "TC40_FileSink.siddhi"
+rm -f "${FILE_SINK_PATH_TC40}"
 deploy_app   "TC40_FileSink.siddhi"
 assert_app_deployed "T1: TC40 app started" TC40_FileSink 30
 

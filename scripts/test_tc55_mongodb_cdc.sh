@@ -9,23 +9,29 @@ require_si_running
 require_mongodb_running
 
 require_cdc_installer_artifacts() {
-    local pattern cdc_jars
+    local pattern cdc_jars cdc_version mongo_version
+    cdc_version="${CDC_VERSION:-$(ext_dep_version "${SI_HOME}" cdc-mongodb siddhi-io-cdc)}"
+    mongo_version=$(ext_dep_version "${SI_HOME}" cdc-mongodb mongodb-driver-sync)
+    if [[ -z "${cdc_version}" || -z "${mongo_version}" ]]; then
+        log_fail "Could not read the cdc-mongodb versions from the pack's extensionDependencies.json"
+        return 1
+    fi
     cdc_jars=$(ls "${SI_HOME}/lib/"siddhi-io-cdc-*.jar 2>/dev/null)
-    if [[ "$(echo "${cdc_jars}" | grep -c .)" -ne 1 || "${cdc_jars}" != *"siddhi-io-cdc-${CDC_VERSION}.jar" ]]; then
-        log_fail "Expected exactly one siddhi-io-cdc-${CDC_VERSION}.jar in ${SI_HOME}/lib, found: ${cdc_jars:-none}"
+    if [[ "$(echo "${cdc_jars}" | grep -c .)" -ne 1 || "${cdc_jars}" != *"siddhi-io-cdc-${cdc_version}.jar" ]]; then
+        log_fail "Expected exactly one siddhi-io-cdc-${cdc_version}.jar in ${SI_HOME}/lib, found: ${cdc_jars:-none}"
         return 1
     fi
     for pattern in \
-        'mongodb_driver_sync_5.11.1_*.jar' \
-        'mongodb_driver_core_5.11.1_*.jar' \
-        'bson_5.11.1_*.jar' \
-        'bson_record_codec_5.11.1_*.jar'; do
+        "mongodb_driver_sync_${mongo_version}_*.jar" \
+        "mongodb_driver_core_${mongo_version}_*.jar" \
+        "bson_${mongo_version}_*.jar" \
+        "bson_record_codec_${mongo_version}_*.jar"; do
         if ! ls "${SI_HOME}/lib/"${pattern} 2>/dev/null | grep -q .; then
             log_fail "Required CDC installer artifact is missing: ${pattern} in ${SI_HOME}/lib"
             return 1
         fi
     done
-    log_pass "T1: Extension Installer produced the CDC extension and MongoDB 5.11.1 runtime JARs"
+    log_pass "T1: Extension Installer produced siddhi-io-cdc ${cdc_version} and MongoDB ${mongo_version} runtime JARs"
 }
 
 MONGO_COLLECTION="TC55_MongoCDC"
