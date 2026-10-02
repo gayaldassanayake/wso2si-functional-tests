@@ -33,7 +33,7 @@ fi
 
 if ! ls "${SI_HOME}/lib/ojdbc"*.jar >/dev/null 2>&1; then
     log_skip "Oracle JDBC bundle (ojdbc11) not found in \${SI_HOME}/lib/ - convert it with bin/jartobundle.sh"
-    exit 0
+    exit "${SKIP_EXIT_CODE}"
 fi
 
 if [[ -f "${BACKUP_YAML}" ]]; then

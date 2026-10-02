@@ -11,7 +11,7 @@ require_mysql_running
 # Check MySQL JDBC driver
 if ! ls "${SI_HOME}/lib/mysql-connector"*.jar 2>/dev/null | head -1 | grep -q '.jar'; then
     log_skip "MySQL JDBC driver not found in \${SI_HOME}/lib/ - skipping TC07"
-    exit 0
+    exit "${SKIP_EXIT_CODE}"
 fi
 
 URL="http://localhost:${PORT_TC07}/TC07_MySQLPersist/InventoryStream"

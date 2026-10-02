@@ -11,7 +11,7 @@ require_rabbitmq_running
 # Skip if the siddhi-io-rabbitmq extension JARs are not installed
 if ! ls "${SI_HOME}/lib/"*rabbitmq*.jar "${SI_HOME}/wso2/lib/plugins/"*rabbitmq*.jar 2>/dev/null | grep -q .; then
     log_skip "siddhi-io-rabbitmq JARs not found in \${SI_HOME}/lib/ or \${SI_HOME}/wso2/lib/plugins/ — skipping TC45"
-    exit 0
+    exit "${SKIP_EXIT_CODE}"
 fi
 
 IN_EXCHANGE="si-test-rmq-in"

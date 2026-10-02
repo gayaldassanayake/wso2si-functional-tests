@@ -13,7 +13,7 @@ require_mysql_running
 
 if ! ls "${SI_HOME}/lib/mysql-connector"*.jar 2>/dev/null | head -1 | grep '.jar' >/dev/null; then
     log_skip "MySQL JDBC driver not found in \${SI_HOME}/lib/ — skipping TC39"
-    exit 0
+    exit "${SKIP_EXIT_CODE}"
 fi
 
 cleanup() {

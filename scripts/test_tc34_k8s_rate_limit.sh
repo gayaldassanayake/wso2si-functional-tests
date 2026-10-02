@@ -11,7 +11,7 @@ NS="${K8S_TEST_NAMESPACE}"
 # Verify the BackendTrafficPolicy CRD is available (Envoy Gateway-specific)
 if ! kubectl get crd backendtrafficpolicies.gateway.envoyproxy.io >/dev/null 2>&1; then
     log_skip "BackendTrafficPolicy CRD not found — Envoy Gateway may not be installed. Skipping TC34."
-    print_summary; exit 0
+    print_summary; exit "${SKIP_EXIT_CODE}"
 fi
 log_info "BackendTrafficPolicy CRD is available"
 

@@ -11,7 +11,7 @@ NS="${K8S_TEST_NAMESPACE}"
 # Verify the BackendTLSPolicy CRD is available (requires Gateway API v1.3+)
 if ! kubectl get crd backendtlspolicies.gateway.networking.k8s.io >/dev/null 2>&1; then
     log_skip "BackendTLSPolicy CRD not installed (requires Gateway API v1.3+) — skipping TC33"
-    print_summary; exit 0
+    print_summary; exit "${SKIP_EXIT_CODE}"
 fi
 log_info "BackendTLSPolicy CRD is available"
 

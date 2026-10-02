@@ -20,6 +20,7 @@
 #   ./run_all_tests.sh --skip-deploy      # Skip deploying apps (already deployed)
 #   ./run_all_tests.sh --with-tools       # Core + distribution tool tests (TC36–38)
 #   ./run_all_tests.sh TC01 TC04 TC06     # Run specific test cases
+#   ./run_all_tests.sh --all --fail-on-skip  # Exit non-zero if any test was skipped
 #
 # Prerequisites:
 #   1. SI server must be running: ${SI_HOME}/bin/server.sh
@@ -54,6 +55,7 @@ WITH_TOOLS=false
 SKIP_DEPLOY=false
 SKIP_HELM=false
 SKIP_K8S=false
+FAIL_ON_SKIP=false
 SPECIFIC_TCS=()
 
 for arg in "$@"; do
@@ -73,9 +75,10 @@ for arg in "$@"; do
         --skip-helm)      SKIP_HELM=true ;;
         --skip-k8s)       SKIP_K8S=true ;;
         --skip-deploy)    SKIP_DEPLOY=true ;;
+        --fail-on-skip)   FAIL_ON_SKIP=true ;;
         TC*)              SPECIFIC_TCS+=("$arg") ;;
         --help|-h)
-            sed -n '/^# Usage:/,/^[^#]/p' "$0" | head -20
+            sed -n '/^# Usage:/,/^[^#]/p' "$0" | head -30
             exit 0
             ;;
         *)
@@ -89,6 +92,27 @@ done
 TOTAL_PASS=0
 TOTAL_FAIL=0
 TOTAL_SKIP=0
+FAILED_TCS=()
+SKIPPED_TCS=()
+PARTIAL_TCS=()
+SKIP_EXIT_CODE=77
+PARTIAL_SKIP_EXIT_CODE=78
+
+# Core tests (always run unless specific TCs are given)
+CORE_TCS=(TC01 TC02 TC03 TC04 TC05 TC06 TC09 TC10 TC12 TC13 TC14 TC15 TC16 TC17 TC18 TC40 TC41 TC42 TC44 TC47 TC50 TC51 TC57 TC59 TC63)
+
+# Optional infra-dependent tests
+KAFKA_TCS=(TC08 TC58 TC64)
+MYSQL_TCS=(TC07 TC11 TC39 TC61)
+RABBITMQ_TCS=(TC45)
+REDIS_TCS=(TC46)
+POSTGRES_TCS=(TC48 TC49)
+ORACLE_LDAP_TCS=(TC52)
+MONGODB_TCS=(TC54 TC55)
+THRIFT_TCS=(TC43)
+HELM_TCS=(TC19 TC20 TC21 TC22 TC23 TC24 TC25 TC26 TC27)
+K8S_TCS=(TC28 TC29 TC30 TC31 TC32 TC33 TC34)
+TOOLS_TCS=(TC36 TC37 TC38 TC53)  # TC35 is standalone — run before starting SI
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -96,6 +120,18 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
+
+# Records every TC in a group as skipped, with the reason, so a missing
+# prerequisite shows up in the final summary instead of vanishing.
+skip_group() {
+    local reason="$1"; shift
+    local tc
+    for tc in "$@"; do
+        SKIPPED_TCS+=("${tc} (${reason})")
+        (( TOTAL_SKIP++ )) || true
+    done
+    echo -e "${YELLOW}[SKIP]${NC} $* — ${reason}"
+}
 
 # ─── Pre-flight: SI must be running ──────────────────────────────────────────
 echo -e "${BOLD}WSO2 SI 4.3.2 Functional Test Suite${NC}"
@@ -173,7 +209,7 @@ if [[ "$SKIP_DEPLOY" == "false" && ${#SPECIFIC_TCS[@]} -eq 0 ]]; then
         if _has_kafka_jars; then
             bash "${SCRIPT_DIR}/scripts/deploy.sh" --kafka
         else
-            echo -e "${YELLOW}[WARN]${NC} Kafka OSGi JARs not found in ${SI_HOME}/lib/ — skipping TC08 deployment."
+            skip_group "Kafka OSGi JARs not found in \${SI_HOME}/lib/" "${KAFKA_TCS[@]}"
             echo "       Convert the Kafka client JARs with jartobundle.sh and place them in \${SI_HOME}/lib/, then restart SI."
             WITH_KAFKA=false
         fi
@@ -183,7 +219,7 @@ if [[ "$SKIP_DEPLOY" == "false" && ${#SPECIFIC_TCS[@]} -eq 0 ]]; then
         if _has_mysql_jdbc; then
             bash "${SCRIPT_DIR}/scripts/deploy.sh" --mysql
         else
-            echo -e "${YELLOW}[WARN]${NC} MySQL JDBC driver not found in ${SI_HOME}/lib/ — skipping TC07/TC11 deployment."
+            skip_group "MySQL JDBC driver not found in \${SI_HOME}/lib/" "${MYSQL_TCS[@]}"
             echo "       Download mysql-connector-j-*.jar and place it in \${SI_HOME}/lib/, then restart SI."
             WITH_MYSQL=false
         fi
@@ -193,7 +229,7 @@ if [[ "$SKIP_DEPLOY" == "false" && ${#SPECIFIC_TCS[@]} -eq 0 ]]; then
         if _has_pg_jdbc; then
             bash "${SCRIPT_DIR}/scripts/deploy.sh" --postgres
         else
-            echo -e "${YELLOW}[WARN]${NC} PostgreSQL JDBC driver not found in ${SI_HOME}/lib/ — skipping TC48/TC49 deployment."
+            skip_group "PostgreSQL JDBC driver not found in \${SI_HOME}/lib/" "${POSTGRES_TCS[@]}"
             echo "       Download postgresql-${PGJDBC_MIN_VERSION}.jar (or newer) into \${SI_HOME}/lib/, then restart SI."
             WITH_POSTGRES=false
         fi
@@ -203,7 +239,7 @@ if [[ "$SKIP_DEPLOY" == "false" && ${#SPECIFIC_TCS[@]} -eq 0 ]]; then
         if _has_rabbitmq_jars; then
             bash "${SCRIPT_DIR}/scripts/deploy.sh" --rabbitmq
         else
-            echo -e "${YELLOW}[WARN]${NC} RabbitMQ extension JARs not found — skipping TC45 deployment."
+            skip_group "RabbitMQ extension JARs not found" "${RABBITMQ_TCS[@]}"
             echo "       Place siddhi-io-rabbitmq and amqp-client JARs in \${SI_HOME}/lib/, then restart SI."
             WITH_RABBITMQ=false
         fi
@@ -213,7 +249,7 @@ if [[ "$SKIP_DEPLOY" == "false" && ${#SPECIFIC_TCS[@]} -eq 0 ]]; then
         if _has_redis_extension; then
             bash "${SCRIPT_DIR}/scripts/deploy.sh" --redis
         else
-            echo -e "${YELLOW}[WARN]${NC} siddhi-store-redis extension not found — skipping TC46 deployment."
+            skip_group "siddhi-store-redis extension not found" "${REDIS_TCS[@]}"
             echo "       Place siddhi-store-redis JAR in \${SI_HOME}/wso2/lib/plugins/, then restart SI."
             WITH_REDIS=false
         fi
@@ -233,7 +269,7 @@ if [[ "$SKIP_DEPLOY" == "false" && ${#SPECIFIC_TCS[@]} -eq 0 ]]; then
         if _has_wso2event_jars; then
             bash "${SCRIPT_DIR}/scripts/deploy.sh" --thrift
         else
-            echo -e "${YELLOW}[WARN]${NC} siddhi-io-wso2event extension not found — skipping TC43 deployment."
+            skip_group "siddhi-io-wso2event extension not found" "${THRIFT_TCS[@]}"
             echo "       Place siddhi-io-wso2event and siddhi-map-wso2event JARs in \${SI_HOME}/wso2/lib/plugins/, then restart SI."
             WITH_THRIFT=false
         fi
@@ -259,13 +295,23 @@ run_test() {
     local script_path="${SCRIPT_DIR}/scripts/${script}"
     if [[ ! -f "${script_path}" ]]; then
         echo -e "${YELLOW}[SKIP]${NC} Script not found: ${script_path}"
+        SKIPPED_TCS+=("${tc} (script not found)")
         (( TOTAL_SKIP++ )) || true
         return
     fi
 
-    if bash "${script_path}"; then
+    local rc=0
+    bash "${script_path}" || rc=$?
+    if [[ $rc -eq 0 ]]; then
         (( TOTAL_PASS++ )) || true
+    elif [[ $rc -eq $SKIP_EXIT_CODE ]]; then
+        SKIPPED_TCS+=("${tc} (prerequisite missing, see its output)")
+        (( TOTAL_SKIP++ )) || true
+    elif [[ $rc -eq $PARTIAL_SKIP_EXIT_CODE ]]; then
+        (( TOTAL_PASS++ )) || true
+        PARTIAL_TCS+=("${tc}")
     else
+        FAILED_TCS+=("${tc}")
         (( TOTAL_FAIL++ )) || true
     fi
     echo ""
@@ -413,20 +459,6 @@ tc_label() {
     esac
 }
 
-# Core tests (always run unless specific TCs are given)
-CORE_TCS=(TC01 TC02 TC03 TC04 TC05 TC06 TC09 TC10 TC12 TC13 TC14 TC15 TC16 TC17 TC18 TC40 TC41 TC42 TC44 TC47 TC50 TC51 TC57 TC59 TC63)
-
-# Optional infra-dependent tests
-KAFKA_TCS=(TC08 TC58 TC64)
-MYSQL_TCS=(TC07 TC11 TC39 TC61)
-RABBITMQ_TCS=(TC45)
-REDIS_TCS=(TC46)
-POSTGRES_TCS=(TC48 TC49)
-ORACLE_LDAP_TCS=(TC52)
-MONGODB_TCS=(TC54 TC55)
-THRIFT_TCS=(TC43)
-TOOLS_TCS=(TC36 TC37 TC38 TC53)  # TC35 is standalone — run before starting SI
-
 if [[ ${#SPECIFIC_TCS[@]} -gt 0 ]]; then
     # Run only specified TCs
     for tc in "${SPECIFIC_TCS[@]}"; do
@@ -434,7 +466,9 @@ if [[ ${#SPECIFIC_TCS[@]} -gt 0 ]]; then
         if [[ -n "$script" ]]; then
             run_test "$tc" "$script" "$(tc_label "$tc")"
         else
-            echo -e "${YELLOW}[WARN]${NC} Unknown test case: $tc"
+            echo -e "${RED}[ERROR]${NC} Unknown test case: $tc"
+            FAILED_TCS+=("${tc} (unknown test case)")
+            (( TOTAL_FAIL++ )) || true
         fi
     done
 else
@@ -493,11 +527,11 @@ else
 
     if [[ "$WITH_HELM" == "true" && "$SKIP_HELM" == "false" ]]; then
         if ! command -v helm >/dev/null 2>&1; then
-            echo -e "${YELLOW}[WARN]${NC} 'helm' not found in PATH — skipping Helm chart tests (TC19-TC27)."
+            skip_group "'helm' not found in PATH" "${HELM_TCS[@]}"
         elif [[ ! -d "${HELM_SI_CHART}" ]]; then
-            echo -e "${YELLOW}[WARN]${NC} HELM_SI_CHART directory not found: ${HELM_SI_CHART} — skipping TC19-TC27."
+            skip_group "HELM_SI_CHART directory not found: ${HELM_SI_CHART}" "${HELM_TCS[@]}"
         else
-            for tc in TC19 TC20 TC21 TC22 TC23 TC24 TC25 TC26 TC27; do
+            for tc in "${HELM_TCS[@]}"; do
                 run_test "$tc" "$(tc_script "$tc")" "$(tc_label "$tc")"
             done
         fi
@@ -509,11 +543,11 @@ else
         elif [[ "$SKIP_K8S" == "true" ]]; then
             echo -e "${YELLOW}[SKIP]${NC} Kubernetes live tests skipped (--skip-k8s)."
         elif ! command -v kubectl >/dev/null 2>&1; then
-            echo -e "${YELLOW}[WARN]${NC} 'kubectl' not found — skipping Kubernetes live tests (TC28-TC34)."
+            skip_group "'kubectl' not found" "${K8S_TCS[@]}"
         elif ! kubectl cluster-info >/dev/null 2>&1; then
-            echo -e "${YELLOW}[WARN]${NC} No Kubernetes cluster reachable — skipping TC28-TC34."
+            skip_group "no Kubernetes cluster reachable" "${K8S_TCS[@]}"
         else
-            for tc in TC28 TC29 TC30 TC31 TC32 TC33 TC34; do
+            for tc in "${K8S_TCS[@]}"; do
                 run_test "$tc" "$(tc_script "$tc")" "$(tc_label "$tc")"
             done
         fi
@@ -529,11 +563,31 @@ fi
 # ─── Final summary ────────────────────────────────────────────────────────────
 echo -e "${BOLD}════════════════════════════════════════════════════════════════${NC}"
 TOTAL=$(( TOTAL_PASS + TOTAL_FAIL + TOTAL_SKIP ))
-if [[ $TOTAL_FAIL -eq 0 ]]; then
+if [[ $TOTAL_FAIL -eq 0 && $TOTAL_SKIP -eq 0 && ${#PARTIAL_TCS[@]} -eq 0 ]]; then
     echo -e "${GREEN}${BOLD}FINAL SUMMARY: ${TOTAL_PASS}/${TOTAL} PASSED${NC}"
+elif [[ $TOTAL_FAIL -eq 0 && $TOTAL_SKIP -eq 0 ]]; then
+    echo -e "${YELLOW}${BOLD}FINAL SUMMARY: ${TOTAL_PASS}/${TOTAL} PASSED, ${#PARTIAL_TCS[@]} with skipped checks${NC}"
+elif [[ $TOTAL_FAIL -eq 0 ]]; then
+    echo -e "${YELLOW}${BOLD}FINAL SUMMARY: ${TOTAL_PASS} PASSED, 0 FAILED, ${TOTAL_SKIP} SKIPPED (of ${TOTAL})${NC}"
 else
-    echo -e "${RED}${BOLD}FINAL SUMMARY: ${TOTAL_PASS} PASSED, ${TOTAL_FAIL} FAILED, ${TOTAL_SKIP} SKIPPED${NC}"
+    echo -e "${RED}${BOLD}FINAL SUMMARY: ${TOTAL_PASS} PASSED, ${TOTAL_FAIL} FAILED, ${TOTAL_SKIP} SKIPPED (of ${TOTAL})${NC}"
 fi
+for tc in ${FAILED_TCS[@]+"${FAILED_TCS[@]}"}; do
+    echo -e "  ${RED}FAILED${NC}  ${tc}"
+done
+for tc in ${SKIPPED_TCS[@]+"${SKIPPED_TCS[@]}"}; do
+    echo -e "  ${YELLOW}SKIPPED${NC} ${tc}"
+done
+for tc in ${PARTIAL_TCS[@]+"${PARTIAL_TCS[@]}"}; do
+    echo -e "  ${YELLOW}PASSED, SOME CHECKS SKIPPED${NC} ${tc}"
+done
 echo -e "${BOLD}════════════════════════════════════════════════════════════════${NC}"
 
-[[ $TOTAL_FAIL -eq 0 ]] && exit 0 || exit 1
+if [[ $TOTAL_FAIL -gt 0 ]]; then
+    exit 1
+fi
+if [[ "$FAIL_ON_SKIP" == "true" && $(( TOTAL_SKIP + ${#PARTIAL_TCS[@]} )) -gt 0 ]]; then
+    echo "Exiting non-zero because --fail-on-skip was given and tests or checks were skipped."
+    exit 1
+fi
+exit 0

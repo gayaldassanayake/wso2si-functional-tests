@@ -14,6 +14,12 @@ source "${SUITE_ROOT}/config.env"
 # ─── Counters ────────────────────────────────────────────────────────────────
 PASS_COUNT=0
 FAIL_COUNT=0
+SKIP_COUNT=0
+# A test that cannot run (missing driver, extension, tool) exits with this code
+# so run_all_tests.sh reports it as skipped instead of passed.
+SKIP_EXIT_CODE=77
+# A test that ran but skipped some of its checks (log_skip) exits with this code.
+PARTIAL_SKIP_EXIT_CODE=78
 CURRENT_TC="${CURRENT_TC:-TEST}"
 
 # ─── Colors ──────────────────────────────────────────────────────────────────
@@ -27,23 +33,31 @@ NC='\033[0m'
 log_info()  { echo -e "${CYAN}[${CURRENT_TC} INFO]${NC}  $*"; }
 log_pass()  { echo -e "${GREEN}[PASS]${NC} $*"; ((PASS_COUNT++)) || true; }
 log_fail()  { echo -e "${RED}[FAIL]${NC} $*" >&2; ((FAIL_COUNT++)) || true; }
-log_skip()  { echo -e "${YELLOW}[SKIP]${NC} $*"; }
+log_skip()  { echo -e "${YELLOW}[SKIP]${NC} $*"; ((SKIP_COUNT++)) || true; }
 log_warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
 
 print_summary() {
     echo ""
     local total=$(( PASS_COUNT + FAIL_COUNT ))
-    if [[ $FAIL_COUNT -eq 0 ]]; then
+    local skipped=""
+    (( SKIP_COUNT > 0 )) && skipped=", ${SKIP_COUNT} SKIPPED"
+    if [[ $FAIL_COUNT -eq 0 && $SKIP_COUNT -eq 0 ]]; then
         echo -e "${GREEN}=== ${CURRENT_TC}: ${PASS_COUNT}/${total} PASSED ===${NC}"
+    elif [[ $FAIL_COUNT -eq 0 ]]; then
+        echo -e "${YELLOW}=== ${CURRENT_TC}: ${PASS_COUNT}/${total} PASSED${skipped} ===${NC}"
     else
-        echo -e "${RED}=== ${CURRENT_TC}: ${PASS_COUNT} PASSED, ${FAIL_COUNT} FAILED ===${NC}"
+        echo -e "${RED}=== ${CURRENT_TC}: ${PASS_COUNT} PASSED, ${FAIL_COUNT} FAILED${skipped} ===${NC}"
     fi
     echo ""
 }
 
-# Returns 0 if TC passed overall, 1 if any failures
+# Returns 1 if any check failed, SKIP_EXIT_CODE if every check was skipped,
+# PARTIAL_SKIP_EXIT_CODE if some were skipped, 0 otherwise.
 tc_exit_code() {
-    [[ $FAIL_COUNT -eq 0 ]] && return 0 || return 1
+    (( FAIL_COUNT > 0 )) && return 1
+    (( SKIP_COUNT > 0 && PASS_COUNT == 0 )) && return "${SKIP_EXIT_CODE}"
+    (( SKIP_COUNT > 0 )) && return "${PARTIAL_SKIP_EXIT_CODE}"
+    return 0
 }
 
 # ─── Pre-flight checks ───────────────────────────────────────────────────────

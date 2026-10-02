@@ -16,7 +16,7 @@ if [[ "${_JAVA_MAJOR}" -gt 11 ]]; then
         export JAVA_HOME="${JAVA11}"
     else
         log_skip "ciphertool.sh requires JDK ≤ 11 and no JDK 11 found — skipping TC38"
-        exit 0
+        exit "${SKIP_EXIT_CODE}"
     fi
 fi
 

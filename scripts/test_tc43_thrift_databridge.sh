@@ -30,13 +30,12 @@ if ! nc -z localhost 7711 2>/dev/null; then
 fi
 log_info "T0: Thrift ports 7611/7711 open"
 
-if ! find "${SI_HOME}" -maxdepth 6 \( -name 'wso2event*.jar' -o -name 'siddhi-io-wso2event*.jar' \) \
-        2>/dev/null | grep -q .; then
+if [[ -z "$(find "${SI_HOME}" -maxdepth 6 \( -name 'wso2event*.jar' -o -name 'siddhi-io-wso2event*.jar' \) 2>/dev/null)" ]]; then
     log_skip "siddhi-io-wso2event extension not found under ${SI_HOME} — skipping TC43"
     log_skip "  Install: jartobundle siddhi-io-wso2event-5.0.2.jar \${SI_HOME}/wso2/lib/plugins/"
     log_skip "           jartobundle siddhi-map-wso2event-5.0.3.jar \${SI_HOME}/wso2/lib/plugins/"
     log_skip "  Then restart SI."
-    exit 0
+    exit "${SKIP_EXIT_CODE}"
 fi
 log_info "T0: wso2event extension present"
 

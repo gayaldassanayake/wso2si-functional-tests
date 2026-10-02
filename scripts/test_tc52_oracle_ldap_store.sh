@@ -10,7 +10,7 @@ require_oracle_ldap_running
 
 if ! ls "${SI_HOME}/lib/ojdbc"*.jar 2>/dev/null | head -1 | grep -q '.jar'; then
     log_skip "Oracle JDBC driver (ojdbc11) not found in \${SI_HOME}/lib/ - skipping TC52"
-    exit 0
+    exit "${SKIP_EXIT_CODE}"
 fi
 
 URL="http://localhost:${PORT_TC52}/TC52_OracleLdapStore/OrderStream"

@@ -13,7 +13,7 @@ require_postgres_running
 PG_JAR="$(pgjdbc_jar)"
 if [[ -z "${PG_JAR}" ]]; then
     log_skip "PostgreSQL JDBC driver not found in \${SI_HOME}/lib/ — skipping TC49"
-    exit 0
+    exit "${SKIP_EXIT_CODE}"
 fi
 
 log_info "T1: Verify TC49 app started successfully"

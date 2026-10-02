@@ -12,7 +12,7 @@ require_redis_running
 if ! ls "${SI_HOME}/wso2/lib/plugins/"*siddhi-store-redis*.jar \
         "${SI_HOME}/lib/"*siddhi-store-redis*.jar 2>/dev/null | grep -q .; then
     log_skip "siddhi-store-redis JAR not found in \${SI_HOME}/wso2/lib/plugins/ or \${SI_HOME}/lib/ — skipping TC46"
-    exit 0
+    exit "${SKIP_EXIT_CODE}"
 fi
 
 URL="http://localhost:${PORT_TC46}/TC46_RedisStore/SessionStream"

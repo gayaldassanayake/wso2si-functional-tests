@@ -16,7 +16,7 @@ if [[ "${_JAVA_MAJOR}" -gt 11 ]]; then
         export JAVA_HOME="${JAVA11}"
     else
         log_skip "osgi-lib.sh requires JDK ≤ 11 and no JDK 11 found — skipping TC37"
-        exit 0
+        exit "${SKIP_EXIT_CODE}"
     fi
 fi
 

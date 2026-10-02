@@ -29,7 +29,7 @@ fi
 
 if ! ls "${SI_HOME}/lib/"*kafka*clients*.jar >/dev/null 2>&1; then
     log_skip "Kafka client bundles not found in \${SI_HOME}/lib/ - run extension-installer.sh install kafka first"
-    exit 0
+    exit "${SKIP_EXIT_CODE}"
 fi
 
 if [[ -f "${BACKUP_YAML}" ]]; then

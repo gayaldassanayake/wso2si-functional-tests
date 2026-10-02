@@ -18,7 +18,7 @@ RUN_ID="tc61-$(date +%s)"
 
 if ! ls "${SI_HOME}/lib/mysql-connector"*.jar >/dev/null 2>&1; then
     log_skip "MySQL JDBC driver not found in \${SI_HOME}/lib/ - skipping TC61"
-    exit 0
+    exit "${SKIP_EXIT_CODE}"
 fi
 
 tc61_sql() { docker exec "${C}" mysql -usitest -psitest123 tc61 --skip-column-names -e "$1" 2>/dev/null || true; }

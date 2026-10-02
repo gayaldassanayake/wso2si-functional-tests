@@ -549,6 +549,8 @@ Runs TC01–TC06, TC09, TC10, TC12–TC18 (15 test cases):
 ./run_all_tests.sh
 ```
 
+Add `--fail-on-skip` to any run to exit non-zero when a test was skipped (for example a missing JDBC driver), not just when one failed.
+
 ### With MySQL
 
 Adds TC07 (RDBMS store) and TC11 (CDC polling):
