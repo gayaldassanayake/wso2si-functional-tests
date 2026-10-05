@@ -320,4 +320,43 @@ EOF
     fi
 fi
 
+log_info "T17: one libthrift bundle, at or above ${LIBTHRIFT_MIN_VERSION}, and every org.apache.thrift import requires it"
+# libthrift below 0.24.0 has CVE-2026-43871; below 0.23.0 also CVE-2026-43869. The orbit bundle is invisible to scanners.
+assert_floor "T17: libthrift" '^libthrift$' "${LIBTHRIFT_MIN_VERSION}"
+thrift_bundles=$(bundles_matching '^libthrift$' | wc -l | tr -d ' ')
+thrift_jars=$(find "${TOOLS_PACK_HOME}/wso2/lib/plugins" -maxdepth 1 -name 'libthrift_*.jar' | wc -l | tr -d ' ')
+if [[ "${thrift_bundles}" == "1" && "${thrift_jars}" == "1" ]]; then
+    log_pass "T17: exactly one libthrift bundle installed"
+else
+    log_fail "T17: ${thrift_bundles} libthrift bundles in bundles.info, ${thrift_jars} libthrift jars in wso2/lib/plugins"
+fi
+low_imports=$(python3 - "${TOOLS_PACK_HOME}/wso2/lib/plugins" "${LIBTHRIFT_MIN_VERSION}" <<'EOF'
+import glob, os, re, sys, zipfile
+key = lambda v: [int(x) for x in re.findall(r'\d+', v)[:3]]
+floor, low, found = key(sys.argv[2]), [], 0
+for jar in sorted(glob.glob(os.path.join(sys.argv[1], '*.jar'))):
+    try:
+        mf = re.sub(r'\r?\n ', '', zipfile.ZipFile(jar).read('META-INF/MANIFEST.MF').decode('utf-8', 'replace'))
+    except Exception:
+        continue
+    imports = re.search(r'^Import-Package: *(.*)$', mf, re.M)
+    if not imports:
+        continue
+    m = re.search(r'(?:^|,)org\.apache\.thrift;[^,]*?version="?([\[(]?)([0-9][^,"\])]*)', imports.group(1))
+    if m:
+        found += 1
+        if key(m.group(2)) < floor:
+            low.append('%s:%s%s' % (os.path.basename(jar), m.group(1), m.group(2)))
+print(found, ' '.join(low))
+EOF
+)
+read -r importers low_list <<< "${low_imports}"
+if [[ "${importers}" == "0" ]]; then
+    log_fail "T17: no bundle imports org.apache.thrift; the check found nothing to inspect"
+elif [[ -z "${low_list:-}" ]]; then
+    log_pass "T17: all ${importers} org.apache.thrift importers require >= ${LIBTHRIFT_MIN_VERSION}"
+else
+    log_fail "T17: org.apache.thrift imports accept a libthrift below ${LIBTHRIFT_MIN_VERSION}: ${low_list}"
+fi
+
 print_summary; tc_exit_code
