@@ -402,4 +402,34 @@ EOF
     esac
 fi
 
+log_info "T20: one platform org.json bundle, with the CVE-2022-45688 and CVE-2023-5072 fixes"
+# Every org.json.wso2 bundle is version 3.0.0.wso2vN, so the version can't show which org.json it wraps:
+# 3.0.0.wso2v1 is org.json 20140107. Check the code instead, as T19 does.
+json_bundles=$(bundles_matching '^json$')
+json_count=$(printf '%s' "${json_bundles}" | grep -c . || true)
+if [[ "${json_count}" != "1" ]]; then
+    log_fail "T20: ${json_count} org.json bundles in bundles.info: $(echo ${json_bundles})"
+else
+    log_pass "T20: exactly one org.json bundle installed ($(echo ${json_bundles}))"
+fi
+json_jars=("${TOOLS_PACK_HOME}"/wso2/lib/plugins/json_*.jar)
+if [[ ! -f "${json_jars[0]}" ]]; then
+    log_fail "T20: no json_*.jar in wso2/lib/plugins"
+else
+    for jar in "${json_jars[@]}"; do
+        fix=$(python3 - "${jar}" <<'EOF'
+import sys, zipfile
+z = zipfile.ZipFile(sys.argv[1])
+entry = 'org/json/JSONTokener.class'
+print('none' if entry not in z.namelist() else ('yes' if b'nextSimpleValue' in z.read(entry) else 'no'))
+EOF
+)
+        case "${fix}" in
+            yes) log_pass "T20: $(basename "${jar}") has the CVE-2022-45688 and CVE-2023-5072 fixes" ;;
+            no) log_fail "T20: $(basename "${jar}") wraps org.json older than 20231013 (CVE-2022-45688, CVE-2023-5072)" ;;
+            *) log_fail "T20: $(basename "${jar}") has no org.json JSONTokener; the check found nothing to inspect" ;;
+        esac
+    done
+fi
+
 print_summary; tc_exit_code
