@@ -12,7 +12,7 @@ A self-contained regression test suite for WSO2 Streaming Integrator (SI) 4.3.x 
 - **2 Avro over Kafka tests** (TC58, TC64) — `siddhi-map-avro` sink and source mapping of binary Kafka messages, with an inline schema and with a Confluent Schema Registry.
 - **1 SMB file test** (TC65) — `siddhi-io-file` sink and `dir.uri` source on an SMB share, over `smb://` and `smb2://`.
 - **1 CDC listening test** (TC39) — MySQL CDC via Debezium binlog (INSERT/UPDATE/DELETE events).
-- **3 optional extension tests** (TC43, TC45, TC46) — Thrift DataBridge, RabbitMQ pass-through, Redis store. Each self-skips when the required SI extension JARs are absent.
+- **3 optional extension tests** (TC43, TC45, TC46) — Thrift DataBridge, RabbitMQ pass-through, Redis store. TC45 and TC46 self-skip when the required SI extension JARs are absent; TC43 installs its own (see below).
 
 ---
 
@@ -527,7 +527,7 @@ These tests self-skip when the required SI extension JARs are absent from `${SI_
 
 | TC | Script | Feature Area | External Deps |
 |---|---|---|---|
-| TC43 | `test_tc43_thrift_databridge.sh` | Thrift DataBridge — WSO2Event TCP + SSL transport | `siddhi-io-wso2event`, `siddhi-map-wso2event` JARs |
+| TC43 | `test_tc43_thrift_databridge.sh` | Thrift DataBridge — WSO2Event data over TCP, login over SSL; external publisher with this pack's client and with an older pack's (`THRIFT_LEGACY_CLIENT_HOME`) | `siddhi-io-wso2event`, `siddhi-map-wso2event` (shipped in `infra/wso2event`) |
 | TC45 | `test_tc45_rabbitmq.sh` | RabbitMQ source + filter + sink pass-through | `siddhi-io-rabbitmq` JARs + RabbitMQ broker |
 | TC46 | `test_tc46_redis_store.sh` | `@store(type='redis')` PK upsert + Store API | `siddhi-store-redis` JAR + Redis |
 
@@ -714,11 +714,13 @@ TC40–TC42, TC44, TC47, TC50, TC51, TC57, TC59, and TC63 are included automatic
 
 ### Optional extension tests (TC43, TC45, TC46)
 
-These tests self-skip when the required extension JARs are absent. To run them after installing the extensions:
+TC45 and TC46 self-skip when the required extension JARs are absent. TC43 never skips: when `siddhi-io-wso2event` or `siddhi-map-wso2event` is missing from `${SI_HOME}/lib`, it installs them from `infra/wso2event` (`infra/wso2event/install.sh`) and fails until SI is restarted.
 
 ```bash
-# Thrift DataBridge (requires siddhi-io-wso2event + siddhi-map-wso2event JARs in SI)
-./run_all_tests.sh --with-thrift
+# Thrift DataBridge. THRIFT_LEGACY_CLIENT_HOME is optional: an extracted older pack, such as
+# SI 1.1.0 (libthrift 0.9.2), whose databridge client TC43 also publishes with.
+SI_HOME=${SI_HOME} ./infra/wso2event/install.sh   # then restart SI
+THRIFT_LEGACY_CLIENT_HOME=/path/to/wso2si-1.1.0 ./run_all_tests.sh --with-thrift
 
 # RabbitMQ (requires siddhi-io-rabbitmq JARs + running RabbitMQ broker)
 ./scripts/setup.sh --rabbitmq
@@ -1026,8 +1028,8 @@ The MySQL JDBC driver JAR is missing from `${SI_HOME}/lib/`. See [MySQL JDBC dri
 **TC37/TC38 skip with "no JDK 11 found"**
 `osgi-lib.sh` and `ciphertool.sh` reject JDK > 11. TC37 and TC38 look for a JDK 11 installation at `/Library/Java/JavaVirtualMachines/graalvm-ce-java11-22.3.0/Contents/Home` and skip if it is absent. Install GraalVM CE 22.3.0 (Java 11) or change the `JAVA11=` path at the top of each script to point at any JDK 11 home on your system.
 
-**TC43 skips with "siddhi-io-wso2event extension not found"**
-The Thrift DataBridge test requires `siddhi-io-wso2event` and `siddhi-map-wso2event` JARs installed in `${SI_HOME}/wso2/lib/plugins/`. These are not bundled with the standard SI distribution. Run `./run_all_tests.sh --with-thrift` only after installing them.
+**TC43 fails with "wso2event extensions were missing" or "not loaded"**
+TC43 needs `siddhi-io-wso2event` and `siddhi-map-wso2event` in `${SI_HOME}/lib`; they are not bundled with SI. The test copies them from `infra/wso2event` when they are missing. Restart SI so it loads them, then rerun. The Thrift agent accepts only `tcp://` data URLs: port 7711 carries the SSL login, not event data.
 
 **TC08 fails with "Kafka broker not available"**
 Either the Kafka Docker container is not running (`./scripts/setup.sh --kafka`) or the Kafka OSGi JARs are not in `${SI_HOME}/lib/`.

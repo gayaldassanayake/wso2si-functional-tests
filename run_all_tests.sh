@@ -223,7 +223,8 @@ _has_mongodb_installer_artifacts() {
 }
 
 _has_wso2event_jars() {
-    ls "${SI_HOME}/wso2/lib/plugins/"*siddhi-io-wso2event*.jar 2>/dev/null | grep -q .
+    compgen -G "${SI_HOME}/lib/siddhi-io-wso2event-*.jar" >/dev/null \
+        || compgen -G "${SI_HOME}/wso2/lib/plugins/*siddhi-io-wso2event*.jar" >/dev/null
 }
 
 # ─── Deploy Siddhi apps ───────────────────────────────────────────────────────
@@ -295,9 +296,10 @@ if [[ "$SKIP_DEPLOY" == "false" && ${#SPECIFIC_TCS[@]} -eq 0 ]]; then
         if _has_wso2event_jars; then
             bash "${SCRIPT_DIR}/scripts/deploy.sh" --thrift
         else
-            skip_group "siddhi-io-wso2event extension not found" "${THRIFT_TCS[@]}"
-            echo "       Place siddhi-io-wso2event and siddhi-map-wso2event JARs in \${SI_HOME}/wso2/lib/plugins/, then restart SI."
-            WITH_THRIFT=false
+            SI_HOME="${SI_HOME}" bash "${SCRIPT_DIR}/infra/wso2event/install.sh"
+            echo -e "${RED}[FAIL]${NC} The wso2event extensions were missing and are now installed in \${SI_HOME}/lib."
+            echo "       Restart SI, then run the tests again."
+            exit 1
         fi
     fi
     echo ""
@@ -461,7 +463,7 @@ tc_label() {
         TC40) echo "File sink — HTTP events written to CSV file" ;;
         TC41) echo "gRPC echo — request-response round-trip (grpc-service + grpc-call)" ;;
         TC42) echo "gRPC consume — fire-and-forget (grpc source + grpc sink)" ;;
-        TC43) echo "Thrift DataBridge (WSO2Event TCP+SSL) [requires WSO2Event extensions]" ;;
+        TC43) echo "Thrift DataBridge (WSO2Event data over TCP, login over SSL; external and legacy clients)" ;;
         TC44) echo "HTTP request/response — http-request sink + http-response source (sink.id correlation)" ;;
         TC45) echo "RabbitMQ pass-through — source + filter + sink [requires RabbitMQ]" ;;
         TC46) echo "Redis store — @store(type=redis) PK upsert + Store API [requires Redis]" ;;
