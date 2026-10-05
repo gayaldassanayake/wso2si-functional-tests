@@ -373,4 +373,33 @@ else
     fi
 fi
 
+log_info "T19: siddhi-execution-map embeds commons-lang3 >= 3.18.0 and org.json >= 20231013"
+map_jars=("${TOOLS_PACK_HOME}"/lib/siddhi-execution-map-*.jar)
+if [[ ! -f "${map_jars[0]}" ]]; then
+    log_fail "T19: no siddhi-execution-map jar in lib/"
+else
+    # Neither copy has Maven metadata. ClassUtils' array-dimension limit is the CVE-2025-48924 fix (3.18.0);
+    # JSONTokener.nextSimpleValue came with the CVE-2023-5072 fix (20231013).
+    read -r lang3_fix json_fix < <(python3 - "${map_jars[0]}" <<'EOF'
+import sys, zipfile
+z = zipfile.ZipFile(sys.argv[1])
+names = set(z.namelist())
+def has(entry, marker):
+    return 'none' if entry not in names else ('yes' if marker in z.read(entry) else 'no')
+print(has('org/apache/commons/lang3/ClassUtils.class', b'Maximum array dimension'),
+      has('org/json/JSONTokener.class', b'nextSimpleValue'))
+EOF
+)
+    case "${lang3_fix}" in
+        yes) log_pass "T19: embedded commons-lang3 has the CVE-2025-48924 fix" ;;
+        no) log_fail "T19: embedded commons-lang3 is older than 3.18.0 (CVE-2025-48924)" ;;
+        *) log_fail "T19: $(basename "${map_jars[0]}") has no commons-lang3 ClassUtils; the check found nothing to inspect" ;;
+    esac
+    case "${json_fix}" in
+        yes) log_pass "T19: embedded org.json has the CVE-2022-45688 and CVE-2023-5072 fixes" ;;
+        no) log_fail "T19: embedded org.json is older than 20231013 (CVE-2022-45688, CVE-2023-5072)" ;;
+        *) log_fail "T19: $(basename "${map_jars[0]}") has no org.json JSONTokener; the check found nothing to inspect" ;;
+    esac
+fi
+
 print_summary; tc_exit_code
