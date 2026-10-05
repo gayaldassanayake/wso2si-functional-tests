@@ -359,4 +359,18 @@ else
     log_fail "T17: org.apache.thrift imports accept a libthrift below ${LIBTHRIFT_MIN_VERSION}: ${low_list}"
 fi
 
+log_info "T18: siddhi-io-kafka embeds no Jackson 1.x classes"
+kafka_jars=("${TOOLS_PACK_HOME}"/lib/siddhi-io-kafka-*.jar)
+if [[ ! -f "${kafka_jars[0]}" ]]; then
+    log_fail "T18: no siddhi-io-kafka jar in lib/"
+else
+    # jackson-mapper-asl 1.9.10 (CVE-2019-10202, CVE-2019-10172) is end of life and was embedded with no user.
+    embedded=$(unzip -Z1 "${kafka_jars[0]}" 2>/dev/null | grep -cE '^org/codehaus/jackson/.*\.class$' || true)
+    if [[ "${embedded}" -eq 0 ]]; then
+        log_pass "T18: $(basename "${kafka_jars[0]}") embeds no org.codehaus.jackson classes"
+    else
+        log_fail "T18: $(basename "${kafka_jars[0]}") embeds ${embedded} org.codehaus.jackson classes"
+    fi
+fi
+
 print_summary; tc_exit_code
