@@ -1,0 +1,46 @@
+@App:name('TC67_HttpOAuthSink')
+@App:description('TC67: HTTP sinks with OAuth 2.0 password and client credentials grants, against infra/oauth-mock')
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8140/TC67_HttpOAuthSink/PasswordStream',
+        basic.auth.enabled='false',
+        @map(type='json'))
+define stream PasswordStream (id string, symbol string, price double);
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8140/TC67_HttpOAuthSink/ClientStream',
+        basic.auth.enabled='false',
+        @map(type='json'))
+define stream ClientStream (id string, symbol string, price double);
+
+-- Password grant: the token response carries a refresh token, so a 401 leads to a refresh_token grant.
+@sink(type='http',
+      publisher.url='http://localhost:8141/api',
+      method='POST',
+      headers="'Content-Type:application/json'",
+      consumer.key='tc67-password',
+      consumer.secret='tc67-secret',
+      oauth.username='admin',
+      oauth.password='admin',
+      token.url='http://localhost:8141/token',
+      @map(type='json'))
+define stream PasswordOut (id string, symbol string, price double);
+
+-- Client credentials grant: no refresh token, so a 401 leads to another client_credentials grant.
+@sink(type='http',
+      publisher.url='http://localhost:8141/api',
+      method='POST',
+      headers="'Content-Type:application/json'",
+      consumer.key='tc67-client',
+      consumer.secret='tc67-secret',
+      token.url='http://localhost:8141/token',
+      @map(type='json'))
+define stream ClientOut (id string, symbol string, price double);
+
+from PasswordStream
+select id, symbol, price
+insert into PasswordOut;
+
+from ClientStream
+select id, symbol, price
+insert into ClientOut;
