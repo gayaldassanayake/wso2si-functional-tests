@@ -2,7 +2,7 @@
 
 A self-contained regression test suite for WSO2 Streaming Integrator (SI) 4.3.x / 4.4.x. It covers:
 
-- **27 SI functional tests** (TC01–TC18, TC40–TC42, TC44, TC47, TC50–TC51, TC57, TC59, TC63) — Siddhi apps, Docker Compose infrastructure, HTTP event injection, log scanning, Store API queries, file sink, gRPC, HTTP request/response, XML emit, JavaScript functions, cron triggers, keywords as attribute names, and file search with a dynamic regex.
+- **28 SI functional tests** (TC01–TC18, TC40–TC42, TC44, TC47, TC50–TC51, TC57, TC59, TC63, TC66) — Siddhi apps, Docker Compose infrastructure, HTTP event injection, log scanning, Store API queries, file sink, gRPC, HTTP request/response, XML emit, JavaScript functions, cron triggers, keywords as attribute names,, file search with a dynamic regex, and the map extension's JSON and XML functions.
 - **9 Helm chart tests** (TC19–TC27) — template rendering and lint validation for the updated `helm-si` chart with Gateway API support. No cluster required.
 - **7 Kubernetes live tests** (TC28–TC34) — end-to-end validation of the Gateway API resources on a live cluster using Envoy Gateway.
 - **5 distribution tool tests** (TC35–TC38, TC53) — server lifecycle, `jartobundle.sh`, `osgi-lib.sh`, `ciphertool.sh`, dependency version floors.
@@ -303,6 +303,7 @@ TC08 uses Kafka (no HTTP port). TC11 uses CDC source. TC12 uses file source. TC3
 | TC63 | 8133 | File search with a dynamic regex |
 | TC64 | 8134 | Avro with a Confluent Schema Registry (HTTP source) |
 | TC65 | 8135, 8136 | SMB file sink and source, `smb://` and `smb2://` (HTTP source) |
+| TC66 | 8137 | Map extension JSON and XML functions |
 | TC60 | 8130 | Oracle error store (HTTP source) + receiver 8131 |
 | TC61 | 8132 | Table statistics (HTTP source); own MySQL on 3309 |
 
@@ -504,7 +505,7 @@ For each scheme, the script fills `@SMB_BASE@` and `@RUN_ID@` in `siddhi-apps/te
 ./run_all_tests.sh --with-samba   # or: ./run_all_tests.sh TC65
 ```
 
-### Core SI Runtime Tests (TC40–TC42, TC44, TC47, TC50–TC51, TC57, TC59, TC63)
+### Core SI Runtime Tests (TC40–TC42, TC44, TC47, TC50–TC51, TC57, TC59, TC63, TC66)
 
 These run alongside TC01–TC18 as part of the standard core test run.
 
@@ -520,6 +521,7 @@ These run alongside TC01–TC18 as part of the standard core test run.
 | TC57 | `test_tc57_cron_trigger_scheduler.sh` | Cron triggers with the same id in two apps; Quartz worker threads exit when no cron job is left (BNYMDMAPROD-220) | `jstack` on `PATH` |
 | TC59 | `test_tc59_keyword_attribute_names.sh` | `offset`, `in`, `per`, `at` and `set` as attribute names in streams, filters, tables and on-demand queries (EIINTERNAL-1239) | None |
 | TC63 | `test_tc63_file_search_dynamic_regex.sh` | `file:search` with a regex from each event, with `exclude.subdirectories` and `subdirectory.depth`; later events must not reuse the first event's regex (support fix #64, wso2/product-integrator-si#377) | None |
+| TC66 | `test_tc66_map_functions.sh` | `map:createFromJSON` keeps Integer, Long and Double values and rejects deeply nested JSON with a `JSONException`, not a `StackOverflowError`; `map:toJSON` keeps null values; `map:createFromXML` number detection, where a leading `+` stays a string. Checks the org.json and commons-lang3 copies embedded in `siddhi-execution-map` | None |
 
 ### Optional Extension Tests (TC43, TC45, TC46)
 
@@ -710,7 +712,7 @@ TC39 requires MySQL with Debezium privileges. It is included in `--with-mysql` /
 ./run_all_tests.sh --with-mysql   # includes TC39 alongside TC07 and TC11
 ```
 
-TC40–TC42, TC44, TC47, TC50, TC51, TC57, TC59, and TC63 are included automatically in all standard runs alongside TC01–TC18.
+TC40–TC42, TC44, TC47, TC50, TC51, TC57, TC59, TC63, and TC66 are included automatically in all standard runs alongside TC01–TC18.
 
 ### Optional extension tests (TC43, TC45, TC46)
 

@@ -103,7 +103,7 @@ SKIP_EXIT_CODE=77
 PARTIAL_SKIP_EXIT_CODE=78
 
 # Core tests (always run unless specific TCs are given)
-CORE_TCS=(TC01 TC02 TC03 TC04 TC05 TC06 TC09 TC10 TC12 TC13 TC14 TC15 TC16 TC17 TC18 TC40 TC41 TC42 TC44 TC47 TC50 TC51 TC57 TC59 TC63)
+CORE_TCS=(TC01 TC02 TC03 TC04 TC05 TC06 TC09 TC10 TC12 TC13 TC14 TC15 TC16 TC17 TC18 TC40 TC41 TC42 TC44 TC47 TC50 TC51 TC57 TC59 TC63 TC66)
 
 # Optional infra-dependent tests
 KAFKA_TCS=(TC08 TC58 TC64)
@@ -414,6 +414,7 @@ tc_script() {
         TC63) echo "test_tc63_file_search_dynamic_regex.sh" ;;
         TC64) echo "test_tc64_avro_schema_registry.sh" ;;
         TC65) echo "test_tc65_smb_file.sh" ;;
+        TC66) echo "test_tc66_map_functions.sh" ;;
         *) echo "" ;;
     esac
 }
@@ -483,6 +484,7 @@ tc_label() {
         TC63) echo "file:search uses each event's regex when it comes from an attribute" ;;
         TC64) echo "Avro mapping with a Confluent Schema Registry — wire-format source, registry sink, unknown id [requires Kafka]" ;;
         TC65) echo "SMB file sink and dir.uri source over smb:// and smb2:// [requires Samba]" ;;
+        TC66) echo "map:createFromJSON, map:toJSON and map:createFromXML on the embedded org.json and commons-lang3" ;;
         TC48) echo "PostgreSQL CDC listening mode — INSERT/UPDATE/DELETE via Debezium logical replication [requires PostgreSQL]" ;;
         TC49) echo "PostgreSQL CDC polling mode [requires PostgreSQL]" ;;
         *) echo "Unknown" ;;

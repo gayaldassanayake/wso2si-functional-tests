@@ -1,0 +1,68 @@
+@App:name('TC66_MapFunctions')
+@App:description('Map extension: createFromJSON, toJSON and createFromXML on the org.json and commons-lang3 copies siddhi-execution-map embeds')
+
+/*
+Tests: map:createFromJSON value types and deep nesting, map:toJSON with null values, map:createFromXML number detection.
+Port : 8137
+Deps : none
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8137/TC66_MapFunctions/JsonStream',
+        @map(type='json'))
+define stream JsonStream (id string, json string);
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8137/TC66_MapFunctions/ToJsonStream',
+        @map(type='json', fail.on.missing.attribute='false'))
+define stream ToJsonStream (id string, symbol string, note string);
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8137/TC66_MapFunctions/XmlStream',
+        @map(type='json'))
+define stream XmlStream (id string, xml string);
+
+@sink(type='log', prefix='[TC66-JSON]')
+define stream JsonTypeStream (id string, countIsInt bool, volumeIsLong bool, priceIsDouble bool,
+                              bigIsDouble bool, nestedRateIsDouble bool, symbol string);
+
+@sink(type='log', prefix='[TC66-TOJSON]')
+define stream ToJsonOutStream (id string, json string);
+
+@sink(type='log', prefix='[TC66-XML]')
+define stream XmlTypeStream (id string, negIsLong bool, decIsDouble bool, plusIsString bool, plus string);
+
+@info(name='from-json')
+from JsonStream
+select id, map:createFromJSON(json) as m
+insert into JsonMapStream;
+
+@info(name='json-types')
+from JsonMapStream
+select id,
+       instanceOfInteger(map:get(m, 'count')) as countIsInt,
+       instanceOfLong(map:get(m, 'volume')) as volumeIsLong,
+       instanceOfDouble(map:get(m, 'price')) as priceIsDouble,
+       instanceOfDouble(map:get(m, 'big')) as bigIsDouble,
+       instanceOfDouble(map:get(map:get(m, 'nested'), 'rate')) as nestedRateIsDouble,
+       cast(map:get(m, 'symbol'), 'string') as symbol
+insert into JsonTypeStream;
+
+@info(name='to-json')
+from ToJsonStream
+select id, map:toJSON(map:create('symbol', symbol, 'note', note)) as json
+insert into ToJsonOutStream;
+
+@info(name='from-xml')
+from XmlStream
+select id, map:createFromXML(xml) as m
+insert into XmlMapStream;
+
+@info(name='xml-types')
+from XmlMapStream
+select id,
+       instanceOfLong(map:get(m, 'neg')) as negIsLong,
+       instanceOfDouble(map:get(m, 'dec')) as decIsDouble,
+       instanceOfString(map:get(m, 'plus')) as plusIsString,
+       cast(map:get(m, 'plus'), 'string') as plus
+insert into XmlTypeStream;
