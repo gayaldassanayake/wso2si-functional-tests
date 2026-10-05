@@ -1,0 +1,38 @@
+@App:name('TC65_Smb2File')
+@App:description('File sink and source over the smb2:// scheme (SMB through siddhi-io-file)')
+
+/*
+Tests: file sink writes one file per event to an SMB share; a dir.uri file source reads files dropped on the share.
+Port : 8136
+Deps : Samba share (setup.sh --samba); the test script replaces @SMB_BASE@ and @RUN_ID@
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8136/TC65_Smb2File/WriteStream',
+        @map(type='json'))
+define stream WriteStream (id string, payload string);
+
+@sink(type='file',
+      file.uri='@SMB_BASE@/@RUN_ID@/out/{{id}}.txt',
+      append='false',
+      @map(type='text', @payload('{{payload}}')))
+define stream ShareOutStream (id string, payload string);
+
+@source(type='file',
+        mode='LINE',
+        dir.uri='@SMB_BASE@/@RUN_ID@/in/',
+        action.after.process='keep',
+        tailing='false',
+        @map(type='csv'))
+define stream ShareInStream (name string, amount double);
+
+@sink(type='log', prefix='[TC65-SMB2-IN]')
+define stream ShareInLogStream (name string, amount double);
+
+from WriteStream
+select id, payload
+insert into ShareOutStream;
+
+from ShareInStream
+select name, amount
+insert into ShareInLogStream;

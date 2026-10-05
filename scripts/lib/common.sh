@@ -128,6 +128,10 @@ require_redis_running() {
     require_docker_container "${REDIS_CONTAINER}"
 }
 
+require_samba_running() {
+    require_docker_container "${SAMBA_CONTAINER}"
+}
+
 require_mongodb_running() {
     require_docker_container "${MONGODB_CONTAINER}"
 }

@@ -10,6 +10,7 @@ A self-contained regression test suite for WSO2 Streaming Integrator (SI) 4.3.x 
 - **1 Oracle LDAP naming test** (TC52) — RDBMS store on Oracle reached through a `jdbc:oracle:thin:@ldap://` URL.
 - **1 Kafka `deployment.yaml` config test** (TC56, standalone) — Kafka source/sink options set globally under `siddhi.extensions`.
 - **2 Avro over Kafka tests** (TC58, TC64) — `siddhi-map-avro` sink and source mapping of binary Kafka messages, with an inline schema and with a Confluent Schema Registry.
+- **1 SMB file test** (TC65) — `siddhi-io-file` sink and `dir.uri` source on an SMB share, over `smb://` and `smb2://`.
 - **1 CDC listening test** (TC39) — MySQL CDC via Debezium binlog (INSERT/UPDATE/DELETE events).
 - **3 optional extension tests** (TC43, TC45, TC46) — Thrift DataBridge, RabbitMQ pass-through, Redis store. Each self-skips when the required SI extension JARs are absent.
 
@@ -25,6 +26,7 @@ A self-contained regression test suite for WSO2 Streaming Integrator (SI) 4.3.x 
 - [Running Tests](#running-tests)
   - [Core tests (no external infrastructure)](#core-tests-no-external-infrastructure)
   - [With MySQL](#with-mysql)
+  - [With Samba](#with-samba)
   - [With Kafka](#with-kafka)
   - [Helm chart tests (no cluster required)](#helm-chart-tests-no-cluster-required)
   - [Kubernetes live tests](#kubernetes-live-tests)
@@ -300,6 +302,7 @@ TC08 uses Kafka (no HTTP port). TC11 uses CDC source. TC12 uses file source. TC3
 | TC59 | 8129 | Keywords as attribute names |
 | TC63 | 8133 | File search with a dynamic regex |
 | TC64 | 8134 | Avro with a Confluent Schema Registry (HTTP source) |
+| TC65 | 8135, 8136 | SMB file sink and source, `smb://` and `smb2://` (HTTP source) |
 | TC60 | 8130 | Oracle error store (HTTP source) + receiver 8131 |
 | TC61 | 8132 | Table statistics (HTTP source); own MySQL on 3309 |
 
@@ -488,6 +491,19 @@ SI_HOME=/path/to/wso2si-4.4.1 bash scripts/test_tc58_avro_kafka_roundtrip.sh
 SI_HOME=/path/to/wso2si-4.4.1 bash scripts/test_tc64_avro_schema_registry.sh
 ```
 
+### SMB File Test (TC65)
+
+| TC | Script | Feature Area | External Deps |
+|---|---|---|---|
+| TC65 | `test_tc65_smb_file.sh` | `@sink(type='file')` and `@source(type='file', dir.uri=…)` on `smb://` and `smb2://` URIs | Samba (`setup.sh --samba`) |
+
+For each scheme, the script fills `@SMB_BASE@` and `@RUN_ID@` in `siddhi-apps/templates/TC65_*.siddhi`, deploys the app and checks: it deploys; an HTTP event is written by the file sink to `<run>/out/<id>.txt` on the share; a CSV file placed in `<run>/in/` is read by the `dir.uri` source; no unknown-scheme or class-loading errors are logged. The templates live outside `siddhi-apps/` top level so `deploy.sh` doesn't deploy them unrendered. siddhi-io-file 2.0.27 to 2.0.29 (SI 4.4.0, 4.4.1 beta) fail at deployment: their SMB VFS providers were removed with the commons-vfs2 sandbox.
+
+```bash
+./scripts/setup.sh --samba
+./run_all_tests.sh --with-samba   # or: ./run_all_tests.sh TC65
+```
+
 ### Core SI Runtime Tests (TC40–TC42, TC44, TC47, TC50–TC51, TC57, TC59, TC63)
 
 These run alongside TC01–TC18 as part of the standard core test run.
@@ -597,6 +613,15 @@ SI_HOME=${SI_HOME} ./infra/ldap-ctx-bundle/build.sh
 ${SI_HOME}/bin/server.sh
 
 ./run_all_tests.sh --with-oracle-ldap
+```
+
+### With Samba
+
+Adds TC65 (SMB file sink and source). The Samba container binds host port 445, so turn off macOS File Sharing over SMB first if it holds the port:
+
+```bash
+./scripts/setup.sh --samba
+./run_all_tests.sh --with-samba
 ```
 
 ### With Kafka
@@ -769,6 +794,9 @@ You can also run a test script directly (apps must already be deployed):
 
 # Start MongoDB only
 ./scripts/setup.sh --mongodb
+
+# Start Samba (share "sambashare", user ubuntu/admin, host port 445) only
+./scripts/setup.sh --samba
 
 # Start everything
 ./scripts/setup.sh --all

@@ -7,6 +7,7 @@
 #   ./run_all_tests.sh --with-mysql       # Core + MySQL tests (TC07, TC11, TC39, TC61)
 #   ./run_all_tests.sh --with-rabbitmq    # Core + RabbitMQ tests (TC45)
 #   ./run_all_tests.sh --with-redis       # Core + Redis tests (TC46)
+#   ./run_all_tests.sh --with-samba       # Core + SMB file tests (TC65)
 #   ./run_all_tests.sh --with-mongodb     # Core + MongoDB store/CDC tests (TC54, TC55)
 #   ./run_all_tests.sh --with-postgres    # Core + PostgreSQL CDC tests (TC48, TC49)
 #   ./run_all_tests.sh --with-oracle-ldap # Core + Oracle via LDAP naming (TC52)
@@ -46,6 +47,7 @@ WITH_KAFKA=false
 WITH_MYSQL=false
 WITH_RABBITMQ=false
 WITH_REDIS=false
+WITH_SAMBA=false
 WITH_MONGODB=false
 WITH_POSTGRES=false
 WITH_ORACLE_LDAP=false
@@ -65,6 +67,7 @@ for arg in "$@"; do
         --with-mysql)     WITH_MYSQL=true ;;
         --with-rabbitmq)  WITH_RABBITMQ=true ;;
         --with-redis)     WITH_REDIS=true ;;
+        --with-samba)     WITH_SAMBA=true ;;
         --with-mongodb)   WITH_MONGODB=true ;;
         --with-postgres)  WITH_POSTGRES=true ;;
         --with-oracle-ldap) WITH_ORACLE_LDAP=true ;;
@@ -72,7 +75,7 @@ for arg in "$@"; do
         --with-helm)      WITH_HELM=true ;;
         --with-k8s)       WITH_K8S=true ;;
         --with-tools)     WITH_TOOLS=true ;;
-        --all)            WITH_KAFKA=true; WITH_MYSQL=true; WITH_RABBITMQ=true; WITH_REDIS=true; WITH_MONGODB=true; WITH_THRIFT=true; WITH_HELM=true; WITH_K8S=true; WITH_TOOLS=true; WITH_POSTGRES=true; WITH_ORACLE_LDAP=true ;;
+        --all)            WITH_KAFKA=true; WITH_MYSQL=true; WITH_RABBITMQ=true; WITH_REDIS=true; WITH_SAMBA=true; WITH_MONGODB=true; WITH_THRIFT=true; WITH_HELM=true; WITH_K8S=true; WITH_TOOLS=true; WITH_POSTGRES=true; WITH_ORACLE_LDAP=true ;;
         --skip-helm)      SKIP_HELM=true ;;
         --skip-k8s)       SKIP_K8S=true ;;
         --skip-deploy)    SKIP_DEPLOY=true ;;
@@ -107,6 +110,7 @@ KAFKA_TCS=(TC08 TC58 TC64)
 MYSQL_TCS=(TC07 TC11 TC39 TC61)
 RABBITMQ_TCS=(TC45)
 REDIS_TCS=(TC46)
+SAMBA_TCS=(TC65)
 POSTGRES_TCS=(TC48 TC49)
 ORACLE_LDAP_TCS=(TC52)
 MONGODB_TCS=(TC54 TC55)
@@ -407,6 +411,7 @@ tc_script() {
         TC62) echo "test_tc62_kafka_state_persistence.sh" ;;
         TC63) echo "test_tc63_file_search_dynamic_regex.sh" ;;
         TC64) echo "test_tc64_avro_schema_registry.sh" ;;
+        TC65) echo "test_tc65_smb_file.sh" ;;
         *) echo "" ;;
     esac
 }
@@ -475,6 +480,7 @@ tc_label() {
         TC62) echo "Kafka source under state persistence — no duplicates across cycles and restart [standalone, requires Kafka]" ;;
         TC63) echo "file:search uses each event's regex when it comes from an attribute" ;;
         TC64) echo "Avro mapping with a Confluent Schema Registry — wire-format source, registry sink, unknown id [requires Kafka]" ;;
+        TC65) echo "SMB file sink and dir.uri source over smb:// and smb2:// [requires Samba]" ;;
         TC48) echo "PostgreSQL CDC listening mode — INSERT/UPDATE/DELETE via Debezium logical replication [requires PostgreSQL]" ;;
         TC49) echo "PostgreSQL CDC polling mode [requires PostgreSQL]" ;;
         *) echo "Unknown" ;;
@@ -531,6 +537,12 @@ else
 
     if [[ "$WITH_REDIS" == "true" ]]; then
         for tc in "${REDIS_TCS[@]}"; do
+            run_test "$tc" "$(tc_script "$tc")" "$(tc_label "$tc")"
+        done
+    fi
+
+    if [[ "$WITH_SAMBA" == "true" ]]; then
+        for tc in "${SAMBA_TCS[@]}"; do
             run_test "$tc" "$(tc_script "$tc")" "$(tc_label "$tc")"
         done
     fi

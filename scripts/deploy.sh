@@ -116,8 +116,13 @@ for arg in "$@"; do
                 fi
             done
             if [[ "$matched" == "false" ]]; then
-                echo "[ERROR] Unknown test case: ${arg}"
-                exit 1
+                tc_lower="$(echo "${arg}" | tr '[:upper:]' '[:lower:]')"
+                if compgen -G "${APPS_DIR}/../scripts/test_${tc_lower}_*.sh" >/dev/null; then
+                    echo "[INFO] ${arg} deploys its own apps"
+                else
+                    echo "[ERROR] Unknown test case: ${arg}"
+                    exit 1
+                fi
             fi
             ;;
         *)
@@ -126,6 +131,11 @@ for arg in "$@"; do
             ;;
     esac
 done
+
+if [[ ${#TO_DEPLOY[@]} -eq 0 ]]; then
+    echo "Nothing to deploy."
+    exit 0
+fi
 
 # Deduplicate (bash 3.2 compatible)
 DEDUPED=()

@@ -122,6 +122,19 @@ services:
       retries: 10
       start_period: 5s
 
+  samba:
+    image: dperson/samba:latest
+    container_name: si-test-samba
+    command: ["-u", "ubuntu;admin", "-s", "sambashare;/share;yes;no;no;ubuntu", "-p"]
+    ports:
+      - "445:445"
+    healthcheck:
+      test: ["CMD", "smbclient", "-L", "//localhost", "-U", "ubuntu%admin"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
   mongodb:
     image: mongo:8.0
     container_name: si-test-mongodb
