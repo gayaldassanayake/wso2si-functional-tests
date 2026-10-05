@@ -238,7 +238,7 @@ Key settings:
 | `TOOLS_PACK_HOME` | `${SI_HOME}` | Pack that TC35–TC38 and TC53 inspect. Set it only to check a different pack on purpose; the runner warns when it differs. |
 | `SI_SIDDHI_DIR` | `${SI_HOME}/wso2/server/deployment/siddhi-files` | Where SI picks up Siddhi apps. |
 | `SI_LOG` | `${SI_HOME}/wso2/server/logs/carbon.log` | SI server log file for assertions. |
-| `SI_HTTP_PORT` | `9090` | SI management HTTP port. |
+| `SI_HTTP_PORT` | `9090` | SI management HTTP port. Override it, with `SI_STORE_API_PORT`, to test a second pack whose `deployment.yaml` uses other ports. |
 | `SI_STORE_API_PORT` | `7070` | Store Query API port. |
 | `DEPLOY_WAIT_SECONDS` | `8` | Seconds to wait after copying apps before running tests. Increase on slow machines. |
 | `MYSQL_USER` / `MYSQL_PASS` | `sitest` / `sitest123` | Credentials created by Docker Compose. |
