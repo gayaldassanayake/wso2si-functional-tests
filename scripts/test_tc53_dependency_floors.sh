@@ -241,7 +241,7 @@ else
 fi
 
 log_info "T14: commons-beanutils at or above ${BEANUTILS_MIN_VERSION}, no ServiceMix beanutils bundle"
-assert_floor "T14: commons-beanutils" '^org\.apache\.commons\.commons-beanutils$' "${BEANUTILS_MIN_VERSION}"
+assert_floor "T14: commons-beanutils" '^(commons-beanutils|org\.apache\.commons\.commons-beanutils)$' "${BEANUTILS_MIN_VERSION}"
 servicemix=$(bundles_matching '^org\.apache\.servicemix\.bundles\.commons-beanutils$' | tr '\n' ' ')
 if [[ -z "${servicemix}" ]]; then
     log_pass "T14: no ServiceMix commons-beanutils bundle installed"
