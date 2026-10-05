@@ -251,4 +251,73 @@ else
     log_fail "T14: ServiceMix commons-beanutils installed: ${servicemix}"
 fi
 
+log_info "T15: siddhi-io-file embeds BouncyCastle >= ${BOUNCYCASTLE_MIN_VERSION}, no bcpkix and commons-net >= 3.9.0"
+file_jars=("${TOOLS_PACK_HOME}"/lib/siddhi-io-file-*.jar)
+if [[ ! -f "${file_jars[0]}" ]]; then
+    log_fail "T15: no siddhi-io-file jar in lib/"
+else
+    # The commons-net check looks for FTPClient.setIpAddressFromPasvResponse, added in 3.9.0 for CVE-2021-37533.
+    read -r bc_version pkix net_fix < <(python3 - "${file_jars[0]}" <<'EOF'
+import re, sys, zipfile
+z = zipfile.ZipFile(sys.argv[1])
+names = set(z.namelist())
+prov = 'org/bouncycastle/jce/provider/BouncyCastleProvider.class'
+m = re.search(rb'BouncyCastle Security Provider v([0-9.]+)', z.read(prov)) if prov in names else None
+pkix_re = re.compile(r'org/bouncycastle/(cert|cms|operator|openssl|pkcs|pkix|tsp|est|dvcs|eac|cmc|mime|voms|mozilla)/')
+pkix = sorted({n.split('/')[2] for n in names if pkix_re.match(n)})
+ftp = 'org/apache/commons/net/ftp/FTPClient.class'
+net_fix = 'none' if ftp not in names else ('yes' if b'setIpAddressFromPasvResponse' in z.read(ftp) else 'no')
+print(m.group(1).decode() if m else 'none', ','.join(pkix) or '-', net_fix)
+EOF
+)
+    if [[ "${bc_version}" == "none" ]]; then
+        log_fail "T15: $(basename "${file_jars[0]}") has no BouncyCastleProvider; the check found nothing to inspect"
+    elif version_ge "${bc_version}" "${BOUNCYCASTLE_MIN_VERSION}"; then
+        log_pass "T15: embedded BouncyCastle ${bc_version} >= ${BOUNCYCASTLE_MIN_VERSION}"
+    else
+        log_fail "T15: embedded BouncyCastle ${bc_version} below ${BOUNCYCASTLE_MIN_VERSION}"
+    fi
+    if [[ "${pkix}" == "-" ]]; then
+        log_pass "T15: $(basename "${file_jars[0]}") embeds no bcpkix packages"
+    else
+        log_fail "T15: $(basename "${file_jars[0]}") embeds bcpkix packages: ${pkix}"
+    fi
+    case "${net_fix}" in
+        yes) log_pass "T15: embedded commons-net has the CVE-2021-37533 fix" ;;
+        no) log_fail "T15: embedded commons-net is older than 3.9.0 (CVE-2021-37533)" ;;
+        *) log_fail "T15: $(basename "${file_jars[0]}") has no commons-net FTPClient; the check found nothing to inspect" ;;
+    esac
+fi
+
+log_info "T16: siddhi-io-file's org.apache.commons.io import range accepts the installed commons-io bundle"
+cio_version=$(bundles_matching '^commons-io$' | awk 'NR==1 {print $2}')
+if [[ ! -f "${file_jars[0]}" || -z "${cio_version}" ]]; then
+    log_fail "T16: siddhi-io-file jar or commons-io bundle missing; the check found nothing to inspect"
+else
+    # commons-io 2.x also exports its packages at 1.4.9999, and bnd can pick that and generate [1.4,2).
+    cio_range=$(python3 - "${file_jars[0]}" <<'EOF'
+import re, sys, zipfile
+mf = re.sub(r'\r?\n ', '', zipfile.ZipFile(sys.argv[1]).read('META-INF/MANIFEST.MF').decode())
+m = re.search(r'(?:^|,)org\.apache\.commons\.io;[^,]*?version="([^"]+)"', mf.split('Import-Package:', 1)[1].split('\n', 1)[0])
+print(m.group(1) if m else 'none')
+EOF
+)
+    if python3 - "${cio_range}" "${cio_version}" <<'EOF'
+import re, sys
+rng, ver = sys.argv[1], sys.argv[2]
+key = lambda v: [int(x) for x in re.findall(r'\d+', v)[:3]]
+m = re.match(r'([\[(])([^,]+),([^\])]+)([\])])', rng)
+if not m:
+    sys.exit(1)
+lo_ok = key(ver) >= key(m.group(2)) if m.group(1) == '[' else key(ver) > key(m.group(2))
+hi_ok = key(ver) < key(m.group(3)) if m.group(4) == ')' else key(ver) <= key(m.group(3))
+sys.exit(0 if lo_ok and hi_ok else 1)
+EOF
+    then
+        log_pass "T16: import range ${cio_range} accepts commons-io ${cio_version}"
+    else
+        log_fail "T16: import range ${cio_range} does not accept commons-io ${cio_version}"
+    fi
+fi
+
 print_summary; tc_exit_code
