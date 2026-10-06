@@ -251,13 +251,14 @@ else
     log_fail "T14: ServiceMix commons-beanutils installed: ${servicemix}"
 fi
 
-log_info "T15: siddhi-io-file embeds BouncyCastle >= ${BOUNCYCASTLE_MIN_VERSION}, no bcpkix and commons-net >= 3.9.0"
+log_info "T15: siddhi-io-file embeds BouncyCastle >= ${BOUNCYCASTLE_MIN_VERSION}, no bcpkix, commons-net >= 3.9.0 and quartz >= 2.3.2"
 file_jars=("${TOOLS_PACK_HOME}"/lib/siddhi-io-file-*.jar)
 if [[ ! -f "${file_jars[0]}" ]]; then
     log_fail "T15: no siddhi-io-file jar in lib/"
 else
-    # The commons-net check looks for FTPClient.setIpAddressFromPasvResponse, added in 3.9.0 for CVE-2021-37533.
-    read -r bc_version pkix net_fix < <(python3 - "${file_jars[0]}" <<'EOF'
+    # The commons-net check looks for FTPClient.setIpAddressFromPasvResponse, added in 3.9.0 for CVE-2021-37533,
+    # and the quartz check for the disallow-doctype-decl feature XMLSchedulingDataProcessor sets from 2.3.2 (CVE-2019-13990).
+    read -r bc_version pkix net_fix quartz_fix < <(python3 - "${file_jars[0]}" <<'EOF'
 import re, sys, zipfile
 z = zipfile.ZipFile(sys.argv[1])
 names = set(z.namelist())
@@ -267,7 +268,9 @@ pkix_re = re.compile(r'org/bouncycastle/(cert|cms|operator|openssl|pkcs|pkix|tsp
 pkix = sorted({n.split('/')[2] for n in names if pkix_re.match(n)})
 ftp = 'org/apache/commons/net/ftp/FTPClient.class'
 net_fix = 'none' if ftp not in names else ('yes' if b'setIpAddressFromPasvResponse' in z.read(ftp) else 'no')
-print(m.group(1).decode() if m else 'none', ','.join(pkix) or '-', net_fix)
+xml = 'org/quartz/xml/XMLSchedulingDataProcessor.class'
+quartz_fix = 'none' if xml not in names else ('yes' if b'disallow-doctype-decl' in z.read(xml) else 'no')
+print(m.group(1).decode() if m else 'none', ','.join(pkix) or '-', net_fix, quartz_fix)
 EOF
 )
     if [[ "${bc_version}" == "none" ]]; then
@@ -286,6 +289,11 @@ EOF
         yes) log_pass "T15: embedded commons-net has the CVE-2021-37533 fix" ;;
         no) log_fail "T15: embedded commons-net is older than 3.9.0 (CVE-2021-37533)" ;;
         *) log_fail "T15: $(basename "${file_jars[0]}") has no commons-net FTPClient; the check found nothing to inspect" ;;
+    esac
+    case "${quartz_fix}" in
+        yes) log_pass "T15: embedded quartz has the CVE-2019-13990 fix" ;;
+        no) log_fail "T15: embedded quartz is older than 2.3.2 (CVE-2019-13990)" ;;
+        *) log_pass "T15: $(basename "${file_jars[0]}") embeds no quartz XML job loader" ;;
     esac
 fi
 
