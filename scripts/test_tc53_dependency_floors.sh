@@ -460,4 +460,19 @@ EOF
     esac
 fi
 
+log_info "T22: streaming-integrator core embeds commons-vfs2 2.10.0 or newer"
+core_jars=("${TOOLS_PACK_HOME}"/wso2/lib/plugins/org.wso2.carbon.streaming.integrator.core_*.jar)
+if [[ ! -f "${core_jars[0]}" ]]; then
+    log_fail "T22: no streaming-integrator core bundle in wso2/lib/plugins"
+else
+    # NameFileFilter is absent from the 2.2-wso2v1 copy shipped by SI 4.4.1-beta and
+    # present in upstream commons-vfs2 2.10.0, which fixes CVE-2025-27553 and CVE-2025-30474.
+    vfs_marker=$(unzip -Z1 "${core_jars[0]}" 2>/dev/null | grep -c '^org/apache/commons/vfs2/filter/NameFileFilter.class$' || true)
+    if [[ "${vfs_marker}" -eq 1 ]]; then
+        log_pass "T22: $(basename "${core_jars[0]}") embeds commons-vfs2 2.10.0 or newer"
+    else
+        log_fail "T22: $(basename "${core_jars[0]}") does not contain the commons-vfs2 2.10.0 marker (CVE-2025-27553, CVE-2025-30474)"
+    fi
+fi
+
 print_summary; tc_exit_code
