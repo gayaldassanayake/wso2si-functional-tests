@@ -42,4 +42,12 @@ assert_log_contains "T7: Jan date processed" '\[TC16\].*data=\[e3, 2026-01-15, '
 # 2026-01-15 + 30 days = 2026-02-14
 assert_log_contains "T7: addedDate crosses month boundary" '\[TC16\].*data=\[e3, [^]]*, 2026-02-14, ' 10
 
+log_info "T8: timestampInMilliseconds parses ISO and GMT offsets"
+PARSE_URL="http://localhost:${PORT_TC16}/TC16_TimeFunctions/ParseStream"
+# commons-lang3 before 3.5 rejects the XXX pattern and reads GMT+05:30 as 30 minutes off.
+post_event "${PARSE_URL}" '{"eventId":"iso","dateValue":"2017-11-30T10:30:19+05:30","dateFormat":"yyyy-MM-dd'"'"'T'"'"'HH:mm:ssXXX"}' >/dev/null
+assert_log_contains "T8: XXX parses +05:30" '\[TC16-PARSE\].*data=\[iso, 1512018019000\]' 15
+post_event "${PARSE_URL}" '{"eventId":"gmt","dateValue":"2017-11-30 10:30:19 GMT+05:30","dateFormat":"yyyy-MM-dd HH:mm:ss z"}' >/dev/null
+assert_log_contains "T8: z parses GMT+05:30 to the right instant" '\[TC16-PARSE\].*data=\[gmt, 1512018019000\]' 15
+
 print_summary; tc_exit_code

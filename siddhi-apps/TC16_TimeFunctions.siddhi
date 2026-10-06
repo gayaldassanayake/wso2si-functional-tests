@@ -4,6 +4,7 @@
 /*
 Tests: currentTimeMillis(), time:timestampInMilliseconds(), time:dateFormat(),
        time:dateAdd(), time:dateDiff(), time:extract().
+       ParseStream: time:timestampInMilliseconds() with a caller-supplied format.
 Port : 8111
 Deps : none
 */
@@ -29,6 +30,14 @@ define table TimeFunctionTable (eventId string,
                                   formattedDate string,
                                   addedDate string);
 
+@source(type='http',
+        receiver.url='http://0.0.0.0:8111/TC16_TimeFunctions/ParseStream',
+        @map(type='json'))
+define stream ParseStream (eventId string, dateValue string, dateFormat string);
+
+@sink(type='log', prefix='[TC16-PARSE]')
+define stream ParseResultStream (eventId string, timestampMs long);
+
 @info(name='time-ops')
 from EventStream
 select eventId,
@@ -53,3 +62,9 @@ update or insert into TimeFunctionTable
         TimeFunctionTable.formattedDate = formattedDate,
         TimeFunctionTable.addedDate = addedDate
     on TimeFunctionTable.eventId == eventId;
+
+@info(name='time-parse')
+from ParseStream
+select eventId,
+       time:timestampInMilliseconds(dateValue, dateFormat) as timestampMs
+insert into ParseResultStream;
