@@ -432,4 +432,24 @@ EOF
     done
 fi
 
+log_info "T21: siddhi-execution-time embeds commons-lang3 >= 3.18.0"
+time_jars=("${TOOLS_PACK_HOME}"/lib/siddhi-execution-time-*.jar)
+if [[ ! -f "${time_jars[0]}" ]]; then
+    log_fail "T21: no siddhi-execution-time jar in lib/"
+else
+    # Same marker as T19: the copy has no Maven metadata.
+    lang3_fix=$(python3 - "${time_jars[0]}" <<'EOF'
+import sys, zipfile
+z = zipfile.ZipFile(sys.argv[1])
+entry = 'org/apache/commons/lang3/ClassUtils.class'
+print('none' if entry not in z.namelist() else ('yes' if b'Maximum array dimension' in z.read(entry) else 'no'))
+EOF
+)
+    case "${lang3_fix}" in
+        yes) log_pass "T21: embedded commons-lang3 has the CVE-2025-48924 fix" ;;
+        no) log_fail "T21: embedded commons-lang3 is older than 3.18.0 (CVE-2025-48924)" ;;
+        *) log_fail "T21: $(basename "${time_jars[0]}") has no commons-lang3 ClassUtils; the check found nothing to inspect" ;;
+    esac
+fi
+
 print_summary; tc_exit_code
