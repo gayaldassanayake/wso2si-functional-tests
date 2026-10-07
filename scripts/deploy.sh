@@ -60,6 +60,8 @@ MONGODB_APPS=(TC54_MongoStore.siddhi)
 POSTGRES_APPS=(TC49_CDCPgPolling.siddhi)
 THRIFT_APPS=(TC43_ThriftReceiver.siddhi TC43_ThriftSenderTCP.siddhi)
 FILE_APPS=(TC12_FileSource.siddhi)
+GROUPED_APPS=("${CORE_APPS[@]}" "${KAFKA_APPS[@]}" "${MYSQL_APPS[@]}" "${RABBITMQ_APPS[@]}" "${REDIS_APPS[@]}"
+    "${MONGODB_APPS[@]}" "${POSTGRES_APPS[@]}" "${THRIFT_APPS[@]}")
 
 TO_DEPLOY=()
 INCLUDE_FILE=false
@@ -105,12 +107,13 @@ for arg in "$@"; do
             INCLUDE_FILE=true
             ;;
         TC*)
-            # Match by number prefix or full filename
+            # Match by full filename, or by number prefix; a prefix match skips apps their test script deploys itself
             matched=false
             for f in "${APPS_DIR}"/TC*.siddhi; do
                 fname="$(basename "$f")"
                 prefix="${fname%%_*}"  # e.g. TC01
-                if [[ "${fname}" == "${arg}" || "${fname}" == "${arg}.siddhi" || "${prefix}" == "${arg}" ]]; then
+                if [[ "${fname}" == "${arg}" || "${fname}" == "${arg}.siddhi" ]] ||
+                   [[ "${prefix}" == "${arg}" && " ${GROUPED_APPS[*]} " == *" ${fname} "* ]]; then
                     TO_DEPLOY+=("${fname}")
                     matched=true
                 fi

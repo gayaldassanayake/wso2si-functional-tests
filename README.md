@@ -422,6 +422,14 @@ Compose seeds OpenLDAP with a minimal Oracle Net schema (`infra/ldap-init/`) and
 
 carbon-jndi only hands out JNDI factories registered as OSGi services, so the JDK's `com.sun.jndi.ldap.LdapCtxFactory` must be registered by a bundle. `infra/ldap-ctx-bundle/` builds a minimal one, equivalent to the provider bundle customers deploy for Oracle LDAP naming. On JDK 17+ that bundle needs `--add-exports=java.naming/com.sun.jndi.ldap=ALL-UNNAMED` to instantiate the factory. SI 4.4.1's `carbon.sh`/`carbon.bat` pass it; for older packs set it through `JAVA_OPTS`.
 
+### Standalone tests after a suite run
+
+`run_all_tests.sh` leaves the apps it deployed in `${SI_SIDDHI_DIR}`. The standalone tests below (TC56, TC60, TC62) restart SI, so after a suite run they start with every suite app deployed (about 35). Results can then depend on the other apps. For example, with `state.persistence` on, one app that fails to persist stops persistence for the apps after it. To test a standalone case on its own, stop SI and remove the suite apps first:
+
+```bash
+rm -f "${SI_HOME}/wso2/server/deployment/siddhi-files/"TC*.siddhi
+```
+
 ### Kafka deployment.yaml Config Test (TC56)
 
 Covers EIINTERNAL-637. Kafka source and sink options set under `siddhi.extensions` in `deployment.yaml` must replace the app's values for every Kafka source/sink on the node. siddhi-io-kafka 5.0.10–5.0.21 read them, then overwrote six source options (`optional.configuration`, `seq.enabled`, `is.binary.message`, `enable.offsets.commit`, `enable.async.commit`, `topic.offsets.map`) with the app's values again, so global SASL/SSL settings were silently dropped. Fixed in 5.0.22.
@@ -775,6 +783,8 @@ Pass TC numbers to run only those cases. Apps are deployed automatically:
 # Skip deployment if apps are already deployed
 ./run_all_tests.sh --skip-deploy TC06
 ```
+
+Named test cases pre-deploy the same apps as `--all`. Apps that a test script deploys one at a time (TC39, TC48, TC55, and TC52 and TC56–TC67) are left to the script. Several Debezium connectors on the same database can't run together.
 
 You can also run a test script directly (apps must already be deployed):
 
