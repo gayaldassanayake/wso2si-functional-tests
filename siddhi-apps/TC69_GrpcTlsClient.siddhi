@@ -1,0 +1,59 @@
+@App:name('TC69_GrpcTlsClient')
+@App:description('gRPC sinks over TLS and mutual TLS, plus clients the servers must refuse')
+
+/*
+Tests: grpc sink with enable.ssl, with and without mutual.auth.enabled, using the pack's default stores.
+       Two sinks must be refused: a plain-text client on the TLS port, and a TLS client without a
+       certificate on the mutual TLS port.
+Port : 8146 (HTTP trigger); the event's mode picks the sink
+Deps : TC69_GrpcTlsServer must be deployed
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8146/TC69_GrpcTlsClient/SendStream',
+        @map(type='json'))
+define stream SendStream (mode string, message string);
+
+@sink(type='grpc',
+      publisher.url='grpc://localhost:8184/org.wso2.grpc.EventService/consume',
+      headers="'stream.id:TlsConsumeStream'",
+      enable.ssl='true',
+      @map(type='json'))
+define stream TlsSendStream (mode string, message string);
+
+@sink(type='grpc',
+      publisher.url='grpc://localhost:8185/org.wso2.grpc.EventService/consume',
+      headers="'stream.id:MtlsConsumeStream'",
+      enable.ssl='true',
+      mutual.auth.enabled='true',
+      @map(type='json'))
+define stream MtlsSendStream (mode string, message string);
+
+@sink(type='grpc',
+      publisher.url='grpc://localhost:8184/org.wso2.grpc.EventService/consume',
+      headers="'stream.id:TlsConsumeStream'",
+      @map(type='json'))
+define stream PlainToTlsSendStream (mode string, message string);
+
+@sink(type='grpc',
+      publisher.url='grpc://localhost:8185/org.wso2.grpc.EventService/consume',
+      headers="'stream.id:MtlsConsumeStream'",
+      enable.ssl='true',
+      @map(type='json'))
+define stream NoCertToMtlsSendStream (mode string, message string);
+
+from SendStream[mode == 'tls']
+select mode, message
+insert into TlsSendStream;
+
+from SendStream[mode == 'mtls']
+select mode, message
+insert into MtlsSendStream;
+
+from SendStream[mode == 'plain-to-tls']
+select mode, message
+insert into PlainToTlsSendStream;
+
+from SendStream[mode == 'nocert-to-mtls']
+select mode, message
+insert into NoCertToMtlsSendStream;

@@ -1,0 +1,37 @@
+@App:name('TC69_GrpcTlsServer')
+@App:description('gRPC sources over TLS and mutual TLS')
+
+/*
+Tests: grpc source with enable.ssl, with and without mutual.auth.enabled. Both use the pack's default
+       stores (wso2carbon.jks, client-truststore.jks), so the TLS handshake runs on the Netty bundles
+       the extension imports from the platform.
+gRPC : localhost:8184 (TLS), localhost:8185 (mutual TLS) / org.wso2.grpc.EventService/consume
+Deps : none (pairs with TC69_GrpcTlsClient)
+*/
+
+@source(type='grpc',
+        receiver.url='grpc://localhost:8184/org.wso2.grpc.EventService/consume',
+        enable.ssl='true',
+        @map(type='json'))
+define stream TlsConsumeStream (mode string, message string);
+
+@source(type='grpc',
+        receiver.url='grpc://localhost:8185/org.wso2.grpc.EventService/consume',
+        enable.ssl='true',
+        mutual.auth.enabled='true',
+        @map(type='json'))
+define stream MtlsConsumeStream (mode string, message string);
+
+@sink(type='log', prefix='[TC69-TLS]')
+define stream TlsLogStream (mode string, message string);
+
+@sink(type='log', prefix='[TC69-MTLS]')
+define stream MtlsLogStream (mode string, message string);
+
+from TlsConsumeStream
+select mode, message
+insert into TlsLogStream;
+
+from MtlsConsumeStream
+select mode, message
+insert into MtlsLogStream;
