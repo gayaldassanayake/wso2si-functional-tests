@@ -1,0 +1,64 @@
+@App:name('TC68_HttpsAndAuth')
+@App:description('HTTPS, mutual TLS and basic authentication on HTTP sources, and an HTTPS sink')
+
+/*
+Tests: siddhi-io-http over TLS and with basic authentication, on the HTTP transport and Netty bundles
+       the extension imports from the platform: the pack's wso2carbon.jks on the server side,
+       client-truststore.jks on the sink side. The loop sink's header is written with a space after the colon.
+Ports: 8142 HTTPS, 8143 mutual TLS, 8144 basic auth, 8145 HTTP loop input
+Deps : none
+*/
+
+@source(type='http',
+        receiver.url='https://localhost:8142/TC68_HttpsAndAuth/HttpsInStream',
+        @map(type='json'))
+define stream HttpsInStream (name string, amount double);
+
+@source(type='http',
+        receiver.url='https://localhost:8143/TC68_HttpsAndAuth/MtlsInStream',
+        ssl.verify.client='require',
+        @map(type='json'))
+define stream MtlsInStream (name string, amount double);
+
+@source(type='http',
+        receiver.url='http://localhost:8144/TC68_HttpsAndAuth/AuthInStream',
+        basic.auth.enabled='true',
+        @map(type='json'))
+define stream AuthInStream (name string, amount double);
+
+@source(type='http',
+        receiver.url='http://localhost:8145/TC68_HttpsAndAuth/LoopInStream',
+        @map(type='json'))
+define stream LoopInStream (name string, amount double);
+
+@sink(type='http',
+      publisher.url='https://localhost:8142/TC68_HttpsAndAuth/HttpsInStream',
+      method='POST',
+      headers="'Content-Type: application/json','X-TC68-Trace: loop'",
+      @map(type='json'))
+define stream LoopOutStream (name string, amount double);
+
+@sink(type='log', prefix='[TC68-HTTPS]')
+define stream HttpsLogStream (name string, amount double);
+
+@sink(type='log', prefix='[TC68-MTLS]')
+define stream MtlsLogStream (name string, amount double);
+
+@sink(type='log', prefix='[TC68-AUTH]')
+define stream AuthLogStream (name string, amount double);
+
+from HttpsInStream
+select name, amount
+insert into HttpsLogStream;
+
+from MtlsInStream
+select name, amount
+insert into MtlsLogStream;
+
+from AuthInStream
+select name, amount
+insert into AuthLogStream;
+
+from LoopInStream
+select name, amount
+insert into LoopOutStream;
