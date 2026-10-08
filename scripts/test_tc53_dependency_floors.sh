@@ -475,4 +475,33 @@ else
     fi
 fi
 
+log_info "T23: no lib/ bundle embeds Netty or the HTTP transport"
+# Embedded copies never get the platform's Netty upgrades. siddhi-io-http 2.3.7 (SI 4.4.0) embedded
+# org.wso2.transport.http; 2.3.8 imports it from the platform (siddhi-io/siddhi-io-http#227).
+embedders=""
+for jar in ${lib_jars[@]+"${lib_jars[@]}"}; do
+    n=$(unzip -Z1 "${jar}" 2>/dev/null | grep -cE '^(io/netty|org/wso2/transport/http)/.*\.class$' || true)
+    (( n > 0 )) && embedders+=" $(basename "${jar}") (${n} classes)"
+done
+if [[ -z "${embedders}" ]]; then
+    log_pass "T23: no bundle in lib/ embeds io.netty or org.wso2.transport.http"
+else
+    log_fail "T23: bundles in lib/ embed Netty or the HTTP transport:${embedders}"
+fi
+
+log_info "T24: no lib/ bundle embeds a relocated Netty"
+# T23's pattern only matches Netty at its own package. siddhi-io-grpc 1.0.14 (SI 4.4.0) carried Netty 4.1.110
+# relocated under io/grpc/netty/shaded by grpc-netty-shaded; 1.0.15 imports the platform's Netty
+# (siddhi-io/siddhi-io-grpc#46).
+relocated=""
+for jar in ${lib_jars[@]+"${lib_jars[@]}"}; do
+    n=$(unzip -Z1 "${jar}" 2>/dev/null | grep -cE '^.+/io/netty/.*\.class$' || true)
+    (( n > 0 )) && relocated+=" $(basename "${jar}") (${n} classes)"
+done
+if [[ -z "${relocated}" ]]; then
+    log_pass "T24: no bundle in lib/ embeds a relocated Netty"
+else
+    log_fail "T24: bundles in lib/ embed a relocated Netty:${relocated}"
+fi
+
 print_summary; tc_exit_code
