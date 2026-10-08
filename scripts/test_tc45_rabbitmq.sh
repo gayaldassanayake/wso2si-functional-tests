@@ -53,4 +53,11 @@ log_info "T5: Publish another event and verify real-time processing"
 rabbitmq_publish "${IN_EXCHANGE}" "${IN_ROUTING_KEY}" '{"event":{"name":"brownie","amount":75.0}}'
 assert_log_contains "T5: new event processed" '\[TC45-RABBIT\].*brownie' 20
 
+log_info "T6: Undeploy the app — a clean RabbitMQ shutdown must not be logged as an error"
+mark_log
+rm -f "${SI_SIDDHI_DIR}/TC45_RabbitMQPassThrough.siddhi"
+assert_log_contains "T6a: app undeployed" 'Siddhi App File TC45_RabbitMQPassThrough undeployed successfully' 30
+assert_log_not_contains "T6b: no RabbitMQ errors during clean shutdown" \
+    'Exception occurred when consuming messages: clean channel shutdown|AlreadyClosedException|Will retry in '\''5 sec'\''' 3
+
 print_summary; tc_exit_code
