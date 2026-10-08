@@ -2,7 +2,7 @@
 
 A self-contained regression test suite for WSO2 Streaming Integrator (SI) 4.3.x / 4.4.x. It covers:
 
-- **29 SI functional tests** (TC01–TC18, TC40–TC42, TC44, TC47, TC50–TC51, TC57, TC59, TC63, TC66–TC67) — Siddhi apps, Docker Compose infrastructure, HTTP event injection, log scanning, Store API queries, file sink, gRPC, HTTP request/response, XML emit, JavaScript functions, cron triggers, keywords as attribute names,, file search with a dynamic regex, the map extension's JSON and XML functions, and the HTTP sink's OAuth 2.0 token refresh.
+- **32 SI functional tests** (TC01–TC18, TC40–TC42, TC44, TC47, TC50–TC51, TC57, TC59, TC63, TC66–TC69) — Siddhi apps, Docker Compose infrastructure, HTTP event injection, log scanning, Store API queries, file sink, gRPC, HTTP request/response, XML emit, JavaScript functions, cron triggers, keywords as attribute names, file search with a dynamic regex, the map extension's JSON and XML functions, the HTTP sink's OAuth 2.0 token refresh, HTTP over TLS with mutual TLS and basic authentication, and gRPC over TLS and mutual TLS.
 - **9 Helm chart tests** (TC19–TC27) — template rendering and lint validation for the updated `helm-si` chart with Gateway API support. No cluster required.
 - **7 Kubernetes live tests** (TC28–TC34) — end-to-end validation of the Gateway API resources on a live cluster using Envoy Gateway.
 - **5 distribution tool tests** (TC35–TC38, TC53) — server lifecycle, `jartobundle.sh`, `osgi-lib.sh`, `ciphertool.sh`, dependency version floors.
@@ -305,6 +305,8 @@ TC08 uses Kafka (no HTTP port). TC11 uses CDC source. TC12 uses file source. TC3
 | TC65 | 8135, 8136 | SMB file sink and source, `smb://` and `smb2://` (HTTP source) |
 | TC66 | 8137 | Map extension JSON and XML functions |
 | TC67 | 8140 | HTTP sink with OAuth 2.0 (HTTP source) + OAuth mock 8141 |
+| TC68 | 8142 | HTTPS source; + 8143 mutual TLS, 8144 basic auth, 8145 HTTP loop input |
+| TC69 | 8146 | gRPC over TLS (HTTP trigger); + gRPC 8184 TLS, 8185 mutual TLS |
 | TC60 | 8130 | Oracle error store (HTTP source) + receiver 8131 |
 | TC61 | 8132 | Table statistics (HTTP source); own MySQL on 3309 |
 
@@ -365,7 +367,7 @@ TC36–TC38 test the WSO2 SI distribution tools. They inspect `TOOLS_PACK_HOME` 
 | TC36 | `test_tc36_jartobundle.sh` | `jartobundle.sh` — JAR to OSGi bundle conversion | `TOOLS_PACK_HOME` |
 | TC37 | `test_tc37_osgi_lib.sh` | `osgi-lib.sh` — register new bundle in `bundles.info` | `TOOLS_PACK_HOME` |
 | TC38 | `test_tc38_ciphertool.sh` | `ciphertool.sh` — encrypt/decrypt round-trip | `TOOLS_PACK_HOME` |
-| TC53 | `test_tc53_dependency_floors.sh` | Netty/Jackson security floors (`NETTY_MIN_VERSION`, `JACKSON_MIN_VERSION`), no duplicate versions, no dangling `bundles.info` entries, snappy-java and Avro embedded in `siddhi-map-avro` (`AVRO_MIN_VERSION`), no `lib/` bundle importing `com.google.gson.internal`, no `lib/` bundle embedding Gson (siddhi-io-kafka only warns), log4j embedded in pax-logging at or above `LOG4J_MIN_VERSION`, every bundle the launcher loads by filename present in `wso2/lib/plugins`, extension installer's kafka-clients/kafka_2.13 at or above `KAFKA_CLIENTS_MIN_VERSION`, no feign, okhttp3, okio or org.json classes embedded in `siddhi-map-avro`, commons-beanutils at or above `BEANUTILS_MIN_VERSION` and no ServiceMix beanutils bundle, exactly one libthrift bundle at or above `LIBTHRIFT_MIN_VERSION` with every `org.apache.thrift` import requiring it, no Jackson 1.x classes embedded in `siddhi-io-kafka`, commons-lang3 with the CVE-2025-48924 fix and org.json with the CVE-2023-5072 fix embedded in `siddhi-execution-map`, exactly one platform org.json bundle with the CVE-2022-45688 and CVE-2023-5072 fixes, and commons-vfs2 2.10.0 or newer embedded in `streaming.integrator.core` | `TOOLS_PACK_HOME` |
+| TC53 | `test_tc53_dependency_floors.sh` | Netty/Jackson security floors (`NETTY_MIN_VERSION`, `JACKSON_MIN_VERSION`), no duplicate versions, no dangling `bundles.info` entries, snappy-java and Avro embedded in `siddhi-map-avro` (`AVRO_MIN_VERSION`), no `lib/` bundle importing `com.google.gson.internal`, no `lib/` bundle embedding Gson (siddhi-io-kafka only warns), log4j embedded in pax-logging at or above `LOG4J_MIN_VERSION`, every bundle the launcher loads by filename present in `wso2/lib/plugins`, extension installer's kafka-clients/kafka_2.13 at or above `KAFKA_CLIENTS_MIN_VERSION`, no feign, okhttp3, okio or org.json classes embedded in `siddhi-map-avro`, commons-beanutils at or above `BEANUTILS_MIN_VERSION` and no ServiceMix beanutils bundle, exactly one libthrift bundle at or above `LIBTHRIFT_MIN_VERSION` with every `org.apache.thrift` import requiring it, no Jackson 1.x classes embedded in `siddhi-io-kafka`, commons-lang3 with the CVE-2025-48924 fix and org.json with the CVE-2023-5072 fix embedded in `siddhi-execution-map`, exactly one platform org.json bundle with the CVE-2022-45688 and CVE-2023-5072 fixes, commons-vfs2 2.10.0 or newer embedded in `streaming.integrator.core`, no `lib/` bundle embedding `io.netty` or `org.wso2.transport.http` classes, and no `lib/` bundle embedding a relocated Netty (such as `io/grpc/netty/shaded/io/netty/` from `grpc-netty-shaded`) | `TOOLS_PACK_HOME` |
 
 ### CDC Listening Test (TC39)
 
@@ -514,7 +516,7 @@ For each scheme, the script fills `@SMB_BASE@` and `@RUN_ID@` in `siddhi-apps/te
 ./run_all_tests.sh --with-samba   # or: ./run_all_tests.sh TC65
 ```
 
-### Core SI Runtime Tests (TC40–TC42, TC44, TC47, TC50–TC51, TC57, TC59, TC63, TC66–TC67)
+### Core SI Runtime Tests (TC40–TC42, TC44, TC47, TC50–TC51, TC57, TC59, TC63, TC66–TC69)
 
 These run alongside TC01–TC18 as part of the standard core test run.
 
@@ -532,6 +534,8 @@ These run alongside TC01–TC18 as part of the standard core test run.
 | TC63 | `test_tc63_file_search_dynamic_regex.sh` | `file:search` with a regex from each event, with `exclude.subdirectories` and `subdirectory.depth`; later events must not reuse the first event's regex (support fix #64, wso2/product-integrator-si#377) | None |
 | TC66 | `test_tc66_map_functions.sh` | `map:createFromJSON` keeps Integer, Long and Double values and rejects deeply nested JSON with a `JSONException`, not a `StackOverflowError`; `map:toJSON` keeps null values; `map:createFromXML` number detection, where a leading `+` stays a string. Checks the org.json and commons-lang3 copies embedded in `siddhi-execution-map` | None |
 | TC67 | `test_tc67_http_oauth_sink.sh` | `http` sink with `consumer.key`/`consumer.secret`/`token.url`: client credentials grant, a 401 from the API, a refresh-token grant and a successful retry, then token reuse. `infra/oauth-mock` serves the token endpoint and the API. siddhi-io-http parses the token responses with the platform org.json bundle | `python3` |
+| TC68 | `test_tc68_https_and_auth.sh` | HTTP source over HTTPS with the pack's `wso2carbon.jks`; `ssl.verify.client='require'` rejects a request without a client certificate in the handshake and accepts one with it; `basic.auth.enabled='true'` returns 401 without or with wrong credentials and 200 with valid ones; an HTTPS sink whose headers are written as `'Name: value'` delivers to the HTTPS source; the SI REST API on `SI_REST_API_PORT` answers alongside; no class-loading errors. siddhi-io-http runs on the platform's HTTP transport and Netty (siddhi-io/siddhi-io-http#227) | `keytool` (from `JAVA_HOME` or `PATH`) |
+| TC69 | `test_tc69_grpc_tls.sh` | gRPC source and sink with `enable.ssl='true'`, with and without `mutual.auth.enabled='true'`, using the pack's `wso2carbon.jks` and `client-truststore.jks`; the TLS port negotiates ALPN `h2` and presents `CN=localhost`; only the mutual TLS port requests a client certificate and it refuses a client without one; events arrive over TLS and mutual TLS; a plain-text client and a TLS client without a certificate are refused; no class-loading or native TLS errors. siddhi-io-grpc runs on the platform's Netty (siddhi-io/siddhi-io-grpc#46) | `openssl` |
 
 ### Optional Extension Tests (TC43, TC45, TC46)
 
@@ -722,7 +726,7 @@ TC39 requires MySQL with Debezium privileges. It is included in `--with-mysql` /
 ./run_all_tests.sh --with-mysql   # includes TC39 alongside TC07 and TC11
 ```
 
-TC40–TC42, TC44, TC47, TC50, TC51, TC57, TC59, TC63, and TC66 are included automatically in all standard runs alongside TC01–TC18.
+TC40–TC42, TC44, TC47, TC50, TC51, TC57, TC59, TC63, and TC66–TC69 are included automatically in all standard runs alongside TC01–TC18.
 
 ### Optional extension tests (TC43, TC45, TC46)
 
@@ -784,7 +788,7 @@ Pass TC numbers to run only those cases. Apps are deployed automatically:
 ./run_all_tests.sh --skip-deploy TC06
 ```
 
-Named test cases pre-deploy the same apps as `--all`. Apps that a test script deploys one at a time (TC39, TC48, TC55, and TC52 and TC56–TC67) are left to the script. Several Debezium connectors on the same database can't run together.
+Named test cases pre-deploy the same apps as `--all`. Apps that a test script deploys one at a time (TC39, TC48, TC55, and TC52 and TC56–TC69) are left to the script. Several Debezium connectors on the same database can't run together.
 
 You can also run a test script directly (apps must already be deployed):
 

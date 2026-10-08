@@ -103,7 +103,7 @@ SKIP_EXIT_CODE=77
 PARTIAL_SKIP_EXIT_CODE=78
 
 # Core tests (always run unless specific TCs are given)
-CORE_TCS=(TC01 TC02 TC03 TC04 TC05 TC06 TC09 TC10 TC12 TC13 TC14 TC15 TC16 TC17 TC18 TC40 TC41 TC42 TC44 TC47 TC50 TC51 TC57 TC59 TC63 TC66 TC67)
+CORE_TCS=(TC01 TC02 TC03 TC04 TC05 TC06 TC09 TC10 TC12 TC13 TC14 TC15 TC16 TC17 TC18 TC40 TC41 TC42 TC44 TC47 TC50 TC51 TC57 TC59 TC63 TC66 TC67 TC68 TC69)
 
 # Optional infra-dependent tests
 KAFKA_TCS=(TC08 TC58 TC64)
@@ -416,6 +416,8 @@ tc_script() {
         TC65) echo "test_tc65_smb_file.sh" ;;
         TC66) echo "test_tc66_map_functions.sh" ;;
         TC67) echo "test_tc67_http_oauth_sink.sh" ;;
+        TC68) echo "test_tc68_https_and_auth.sh" ;;
+        TC69) echo "test_tc69_grpc_tls.sh" ;;
         *) echo "" ;;
     esac
 }
@@ -487,6 +489,8 @@ tc_label() {
         TC65) echo "SMB file sink and dir.uri source over smb:// and smb2:// [requires Samba]" ;;
         TC66) echo "map:createFromJSON, map:toJSON and map:createFromXML on the embedded org.json and commons-lang3" ;;
         TC67) echo "HTTP sink with OAuth 2.0: client credentials grant, 401, token refresh and retry" ;;
+        TC68) echo "HTTP over TLS: HTTPS source, mutual TLS, basic auth, HTTPS sink with 'Name: value' headers, REST API alongside" ;;
+        TC69) echo "gRPC over TLS: TLS and mutual TLS source and sink, handshake checks, plain-text and certificate-less clients refused" ;;
         TC48) echo "PostgreSQL CDC listening mode — INSERT/UPDATE/DELETE via Debezium logical replication [requires PostgreSQL]" ;;
         TC49) echo "PostgreSQL CDC polling mode [requires PostgreSQL]" ;;
         *) echo "Unknown" ;;
