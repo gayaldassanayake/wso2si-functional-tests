@@ -2,6 +2,9 @@
 # TC72: siddhi-io-file over FTP and SFTP (password and key authentication)
 #
 # siddhi-io-file 2.0.30 runs on the WSO2 VFS 2.10 fork. TC65 covers SMB; this covers the other remote schemes.
+#
+# FTP runs twice, the second time in a directory created after the first pass. VFS caches FTP directory listings
+# across deployments, so one of the two moves fails until that is fixed (also in 4.3.1; SI-WEBSOCKET-FTP-BUGS.md).
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
@@ -20,7 +23,7 @@ cleanup() {
     local app
     for app in "${DEPLOYED_APPS[@]+"${DEPLOYED_APPS[@]}"}"; do rm -f "${SI_SIDDHI_DIR}/${app}"; done
     rm -rf "${KEY_DIR}"
-    docker exec "${FTP_CONTAINER}" rm -rf "${FTP_HOME}/${RUN_ID}-ftp" 2>/dev/null || true
+    docker exec "${FTP_CONTAINER}" rm -rf "${FTP_HOME}/${RUN_ID}-ftp" "${FTP_HOME}/${RUN_ID}-ftp2" 2>/dev/null || true
     docker exec "${SFTP_CONTAINER}" sh -c "rm -rf '${SFTP_HOME}/${RUN_ID}-sftp' '${SFTP_HOME}/${RUN_ID}-sftpkey'; \
         sed -i '/${RUN_ID}/d' /home/${SFTP_USER}/.ssh/authorized_keys" 2>/dev/null || true
 }
@@ -81,8 +84,8 @@ run_remote() {
     if [[ "${moved}" == "true" ]] && ! docker exec "${container}" test -e "${dir}/in/sales.csv"; then
         log_pass "${label} T3: file moved from in/ to processed/"
     elif log_since_mark | grep -qE "Could not create (FTP directory|folder) \"${base%%://*}://[^\"]*/${dir##*/}\""; then
-        log_warn "${label} T3: move failed creating the existing run directory (known: VFS FTP caches the parent" \
-            "listing across deployments, so a directory created after the first FTP use looks missing; also in 4.3.1)"
+        log_fail "${label} T3: move failed creating the existing run directory (VFS FTP caches the parent" \
+            "listing across deployments, so a directory created after the first FTP use looks missing)"
     else
         log_fail "${label} T3: file not moved from in/ to processed/ within 15s"
     fi
@@ -111,6 +114,8 @@ RUN_MARK=${LOG_MARK}
 
 run_remote FTP TC72_FtpFile "${PORT_TC72_FTP}" "${FTP_CONTAINER}" "${FTP_HOME}/${RUN_ID}-ftp" \
     "ftp://${FTP_USER}:${FTP_PASSWORD}@${FTP_HOST}:${FTP_PORT}/${RUN_ID}-ftp" "PASSIVE_MODE:true" "${FTP_USER}"
+run_remote FTP2 TC72_FtpFile "${PORT_TC72_FTP}" "${FTP_CONTAINER}" "${FTP_HOME}/${RUN_ID}-ftp2" \
+    "ftp://${FTP_USER}:${FTP_PASSWORD}@${FTP_HOST}:${FTP_PORT}/${RUN_ID}-ftp2" "PASSIVE_MODE:true" "${FTP_USER}"
 
 SFTP_OPTS="USER_DIR_IS_ROOT:false,AVOID_PERMISSION_CHECK:true"
 SFTP_CHROOT_DIR="/${SFTP_HOME#/home/${SFTP_USER}/}"

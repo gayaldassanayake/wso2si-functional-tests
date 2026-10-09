@@ -2,8 +2,8 @@
 # TC71: siddhi-io-websocket client and server sinks and sources, over ws:// and wss://
 #
 # The websocket client (sink and source) connects once, when its app starts, and never reconnects
-# (siddhi-io-websocket 3.0.3; SI 4.3.1 behaves the same). The server app is therefore deployed first, and
-# T8 reports the reconnect behaviour as a known issue instead of failing.
+# (siddhi-io-websocket 3.0.3, also in SI 4.3.1; SI-WEBSOCKET-FTP-BUGS.md). The server app is therefore deployed
+# first, and T8 fails until the client reconnects after the server app is redeployed.
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
@@ -89,7 +89,7 @@ LOG_MARK=${RUN_MARK}
 assert_log_not_contains "T7: no class-loading errors during the run" \
     'NoClassDefFoundError|ClassNotFoundException|NoSuchMethodError' 0
 
-log_info "T8: client reconnects after the server app is redeployed (known issue)"
+log_info "T8: client reconnects after the server app is redeployed"
 undeploy_app "${SERVER_FILE}"
 deploy_app "${SERVER_FILE}"
 assert_app_deployed "T8: ${SERVER_NAME} redeployed" "${SERVER_NAME}" 30 || { print_summary; tc_exit_code; exit $?; }
@@ -104,7 +104,7 @@ if [[ "${reconnected}" == "true" ]]; then
     log_pass "T8: websocket sink delivered to the redeployed server"
 else
     stale=$(log_since_mark | grep -c "Siddhi app '${SERVER_NAME}' is not running") || true
-    log_warn "T8: websocket sink did not reconnect to the redeployed server within 20s (known, also in 4.3.1);" \
+    log_fail "T8: websocket sink did not reconnect to the redeployed server within 20s;" \
         "${stale} events went to the undeployed app's runtime ('is not running')"
 fi
 
