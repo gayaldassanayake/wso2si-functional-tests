@@ -1,0 +1,68 @@
+@App:name('TC74_TextMapper')
+@App:description('siddhi-map-text: default format, regex groups, missing attributes, templates, mustache and event grouping')
+
+/*
+Tests: text source in the default 'name:value' format, with regex groups, with fail.on.missing.attribute on and
+       off, and with event grouping; text sink with a @payload template, mustache escaping and event grouping.
+Port : 8155 (default, grouped and lenient sources), 8156 (regex source)
+Deps : none. The script fills in @OUT_DIR@, a local directory for the file sinks.
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8155/TC74_TextMapper/DefaultStream',
+        @map(type='text'))
+define stream DefaultStream (symbol string, price double, qty long);
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8156/TC74_TextMapper/RegexStream',
+        @map(type='text', regex.A='(\w+)\s([-0-9.]+)', regex.B='qty=(\d+)',
+             @attributes(symbol = 'A[1]', price = 'A[2]', qty = 'B')))
+define stream RegexStream (symbol string, price double, qty long);
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8155/TC74_TextMapper/LenientStream',
+        @map(type='text', fail.on.missing.attribute='false', regex.A='(\w+)\s([-0-9.]+)', regex.B='qty=(\d+)',
+             @attributes(symbol = 'A[1]', price = 'A[2]', qty = 'B')))
+define stream LenientStream (symbol string, price double, qty long);
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8155/TC74_TextMapper/GroupedStream',
+        @map(type='text', event.grouping.enabled='true', delimiter='####'))
+define stream GroupedInStream (symbol string, price double, qty long);
+
+@sink(type='log', prefix='[TC74-DEFAULT]')
+define stream DefaultLogStream (symbol string, price double, qty long);
+
+@sink(type='log', prefix='[TC74-REGEX]')
+define stream RegexLogStream (symbol string, price double, qty long);
+
+@sink(type='log', prefix='[TC74-LENIENT]')
+define stream LenientLogStream (symbol string, price double, qty long);
+
+@sink(type='log', prefix='[TC74-GROUPED-IN]')
+define stream GroupedLogStream (symbol string, price double, qty long);
+
+@sink(type='file', file.uri='@OUT_DIR@/template.txt', append='true',
+      @map(type='text', @payload("Stock {{symbol}} at {{price}} x{{qty}}")))
+define stream TemplateOutStream (symbol string, price double, qty long);
+
+@sink(type='file', file.uri='@OUT_DIR@/mustache.txt', append='true',
+      @map(type='text', mustache.enabled='true', @payload("escaped={{symbol}} raw={{{symbol}}}")))
+define stream MustacheOutStream (symbol string, price double, qty long);
+
+@sink(type='file', file.uri='@OUT_DIR@/grouped.txt', append='true',
+      @map(type='text', event.grouping.enabled='true', delimiter='----'))
+define stream GroupedOutStream (symbol string, price double, qty long);
+
+from DefaultStream select * insert into DefaultLogStream;
+from RegexStream select * insert into RegexLogStream;
+from LenientStream select * insert into LenientLogStream;
+from GroupedInStream select * insert into GroupedLogStream;
+
+from RegexStream select * insert into TemplateOutStream;
+from RegexStream select * insert into MustacheOutStream;
+from DefaultStream select * insert into MustacheOutStream;
+
+from DefaultStream#window.lengthBatch(3)
+select *
+insert into GroupedOutStream;
