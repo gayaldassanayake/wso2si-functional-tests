@@ -8,6 +8,7 @@
 #   ./run_all_tests.sh --with-rabbitmq    # Core + RabbitMQ tests (TC45)
 #   ./run_all_tests.sh --with-redis       # Core + Redis tests (TC46)
 #   ./run_all_tests.sh --with-samba       # Core + SMB file tests (TC65)
+#   ./run_all_tests.sh --with-ftp         # Core + FTP/SFTP file tests (TC72)
 #   ./run_all_tests.sh --with-mongodb     # Core + MongoDB store/CDC tests (TC54, TC55)
 #   ./run_all_tests.sh --with-postgres    # Core + PostgreSQL CDC tests (TC48, TC49)
 #   ./run_all_tests.sh --with-oracle-ldap # Core + Oracle via LDAP naming (TC52)
@@ -48,6 +49,7 @@ WITH_MYSQL=false
 WITH_RABBITMQ=false
 WITH_REDIS=false
 WITH_SAMBA=false
+WITH_FTP=false
 WITH_MONGODB=false
 WITH_POSTGRES=false
 WITH_ORACLE_LDAP=false
@@ -68,6 +70,7 @@ for arg in "$@"; do
         --with-rabbitmq)  WITH_RABBITMQ=true ;;
         --with-redis)     WITH_REDIS=true ;;
         --with-samba)     WITH_SAMBA=true ;;
+        --with-ftp)       WITH_FTP=true ;;
         --with-mongodb)   WITH_MONGODB=true ;;
         --with-postgres)  WITH_POSTGRES=true ;;
         --with-oracle-ldap) WITH_ORACLE_LDAP=true ;;
@@ -75,7 +78,7 @@ for arg in "$@"; do
         --with-helm)      WITH_HELM=true ;;
         --with-k8s)       WITH_K8S=true ;;
         --with-tools)     WITH_TOOLS=true ;;
-        --all)            WITH_KAFKA=true; WITH_MYSQL=true; WITH_RABBITMQ=true; WITH_REDIS=true; WITH_SAMBA=true; WITH_MONGODB=true; WITH_THRIFT=true; WITH_HELM=true; WITH_K8S=true; WITH_TOOLS=true; WITH_POSTGRES=true; WITH_ORACLE_LDAP=true ;;
+        --all)            WITH_KAFKA=true; WITH_MYSQL=true; WITH_RABBITMQ=true; WITH_REDIS=true; WITH_SAMBA=true; WITH_FTP=true; WITH_MONGODB=true; WITH_THRIFT=true; WITH_HELM=true; WITH_K8S=true; WITH_TOOLS=true; WITH_POSTGRES=true; WITH_ORACLE_LDAP=true ;;
         --skip-helm)      SKIP_HELM=true ;;
         --skip-k8s)       SKIP_K8S=true ;;
         --skip-deploy)    SKIP_DEPLOY=true ;;
@@ -103,7 +106,7 @@ SKIP_EXIT_CODE=77
 PARTIAL_SKIP_EXIT_CODE=78
 
 # Core tests (always run unless specific TCs are given)
-CORE_TCS=(TC01 TC02 TC03 TC04 TC05 TC06 TC09 TC10 TC12 TC13 TC14 TC15 TC16 TC17 TC18 TC40 TC41 TC42 TC44 TC47 TC50 TC51 TC57 TC59 TC63 TC66 TC67 TC68 TC69)
+CORE_TCS=(TC01 TC02 TC03 TC04 TC05 TC06 TC09 TC10 TC12 TC13 TC14 TC15 TC16 TC17 TC18 TC40 TC41 TC42 TC44 TC47 TC50 TC51 TC57 TC59 TC63 TC66 TC67 TC68 TC69 TC70 TC71 TC73 TC74)
 
 # Optional infra-dependent tests
 KAFKA_TCS=(TC08 TC58 TC64)
@@ -111,6 +114,7 @@ MYSQL_TCS=(TC07 TC11 TC39 TC61)
 RABBITMQ_TCS=(TC45)
 REDIS_TCS=(TC46)
 SAMBA_TCS=(TC65)
+FTP_TCS=(TC72)
 POSTGRES_TCS=(TC48 TC49)
 ORACLE_LDAP_TCS=(TC52)
 MONGODB_TCS=(TC54 TC55)
@@ -418,6 +422,11 @@ tc_script() {
         TC67) echo "test_tc67_http_oauth_sink.sh" ;;
         TC68) echo "test_tc68_https_and_auth.sh" ;;
         TC69) echo "test_tc69_grpc_tls.sh" ;;
+        TC70) echo "test_tc70_tcp_transport.sh" ;;
+        TC71) echo "test_tc71_websocket_transport.sh" ;;
+        TC72) echo "test_tc72_remote_file.sh" ;;
+        TC73) echo "test_tc73_json_list_functions.sh" ;;
+        TC74) echo "test_tc74_text_mapper.sh" ;;
         *) echo "" ;;
     esac
 }
@@ -491,6 +500,11 @@ tc_label() {
         TC67) echo "HTTP sink with OAuth 2.0: client credentials grant, 401, token refresh and retry" ;;
         TC68) echo "HTTP over TLS: HTTPS source, mutual TLS, basic auth, HTTPS sink with 'Name: value' headers, REST API alongside" ;;
         TC69) echo "gRPC over TLS: TLS and mutual TLS source and sink, handshake checks, plain-text and certificate-less clients refused" ;;
+        TC70) echo "TCP transport: binary, text and JSON mappers over the pack's TCP server, sync sink, burst, bad client" ;;
+        TC71) echo "Websocket transport: client and server sinks/sources over ws:// and wss://, burst, TLS upgrade checks" ;;
+        TC72) echo "File over FTP and SFTP (password and key): line source with move, append sink, file:isExist/size [requires FTP/SFTP]" ;;
+        TC73) echo "JSON and list functions: json:get*/setElement/tokenize/group, list:create/get/add/sort/tokenize/collect" ;;
+        TC74) echo "Text mapper: default format, regex groups, missing attributes, templates, mustache, event grouping" ;;
         TC48) echo "PostgreSQL CDC listening mode — INSERT/UPDATE/DELETE via Debezium logical replication [requires PostgreSQL]" ;;
         TC49) echo "PostgreSQL CDC polling mode [requires PostgreSQL]" ;;
         *) echo "Unknown" ;;
@@ -553,6 +567,12 @@ else
 
     if [[ "$WITH_SAMBA" == "true" ]]; then
         for tc in "${SAMBA_TCS[@]}"; do
+            run_test "$tc" "$(tc_script "$tc")" "$(tc_label "$tc")"
+        done
+    fi
+
+    if [[ "$WITH_FTP" == "true" ]]; then
+        for tc in "${FTP_TCS[@]}"; do
             run_test "$tc" "$(tc_script "$tc")" "$(tc_label "$tc")"
         done
     fi

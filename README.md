@@ -2,7 +2,7 @@
 
 A self-contained regression test suite for WSO2 Streaming Integrator (SI) 4.3.x / 4.4.x. It covers:
 
-- **32 SI functional tests** (TC01–TC18, TC40–TC42, TC44, TC47, TC50–TC51, TC57, TC59, TC63, TC66–TC69) — Siddhi apps, Docker Compose infrastructure, HTTP event injection, log scanning, Store API queries, file sink, gRPC, HTTP request/response, XML emit, JavaScript functions, cron triggers, keywords as attribute names, file search with a dynamic regex, the map extension's JSON and XML functions, the HTTP sink's OAuth 2.0 token refresh, HTTP over TLS with mutual TLS and basic authentication, and gRPC over TLS and mutual TLS.
+- **36 SI functional tests** (TC01–TC18, TC40–TC42, TC44, TC47, TC50–TC51, TC57, TC59, TC63, TC66–TC71, TC73–TC74) — Siddhi apps, Docker Compose infrastructure, HTTP event injection, log scanning, Store API queries, file sink, gRPC, HTTP request/response, XML emit, JavaScript functions, cron triggers, keywords as attribute names, file search with a dynamic regex, the map extension's JSON and XML functions, the HTTP sink's OAuth 2.0 token refresh, HTTP over TLS with mutual TLS and basic authentication, gRPC over TLS and mutual TLS, TCP with the binary, text and JSON mappers, websockets over ws:// and wss://, the JSON and list functions, and the text mapper.
 - **9 Helm chart tests** (TC19–TC27) — template rendering and lint validation for the updated `helm-si` chart with Gateway API support. No cluster required.
 - **7 Kubernetes live tests** (TC28–TC34) — end-to-end validation of the Gateway API resources on a live cluster using Envoy Gateway.
 - **5 distribution tool tests** (TC35–TC38, TC53) — server lifecycle, `jartobundle.sh`, `osgi-lib.sh`, `ciphertool.sh`, dependency version floors.
@@ -11,6 +11,7 @@ A self-contained regression test suite for WSO2 Streaming Integrator (SI) 4.3.x 
 - **1 Kafka `deployment.yaml` config test** (TC56, standalone) — Kafka source/sink options set globally under `siddhi.extensions`.
 - **2 Avro over Kafka tests** (TC58, TC64) — `siddhi-map-avro` sink and source mapping of binary Kafka messages, with an inline schema and with a Confluent Schema Registry.
 - **1 SMB file test** (TC65) — `siddhi-io-file` sink and `dir.uri` source on an SMB share, over `smb://` and `smb2://`.
+- **1 FTP/SFTP file test** (TC72) — `siddhi-io-file` line source with move-after-process, append sink and `file:isExist`/`file:size` over FTP, SFTP with a password and SFTP with an RSA key.
 - **1 CDC listening test** (TC39) — MySQL CDC via Debezium binlog (INSERT/UPDATE/DELETE events).
 - **3 optional extension tests** (TC43, TC45, TC46) — Thrift DataBridge, RabbitMQ pass-through, Redis store. TC45 and TC46 self-skip when the required SI extension JARs are absent; TC43 installs its own (see below).
 
@@ -27,6 +28,7 @@ A self-contained regression test suite for WSO2 Streaming Integrator (SI) 4.3.x 
   - [Core tests (no external infrastructure)](#core-tests-no-external-infrastructure)
   - [With MySQL](#with-mysql)
   - [With Samba](#with-samba)
+  - [With FTP and SFTP](#with-ftp-and-sftp)
   - [With Kafka](#with-kafka)
   - [Helm chart tests (no cluster required)](#helm-chart-tests-no-cluster-required)
   - [Kubernetes live tests](#kubernetes-live-tests)
@@ -307,6 +309,11 @@ TC08 uses Kafka (no HTTP port). TC11 uses CDC source. TC12 uses file source. TC3
 | TC67 | 8140 | HTTP sink with OAuth 2.0 (HTTP source) + OAuth mock 8141 |
 | TC68 | 8142 | HTTPS source; + 8143 mutual TLS, 8144 basic auth, 8145 HTTP loop input |
 | TC69 | 8146 | gRPC over TLS (HTTP trigger); + gRPC 8184 TLS, 8185 mutual TLS |
+| TC70 | 8147 | TCP transport (HTTP trigger); + the pack's TCP server on 9892 |
+| TC71 | 8148 | Websocket transport (HTTP triggers); + 8149 ws, 8150 wss, 8151 websocket-server sink |
+| TC72 | 8152, 8153 | File over FTP and SFTP (HTTP triggers); FTP container on 2121 (passive 21100–21130), SFTP container on 2224 |
+| TC73 | 8154 | JSON and list functions |
+| TC74 | 8155, 8156 | Text mapper (HTTP sources) |
 | TC60 | 8130 | Oracle error store (HTTP source) + receiver 8131 |
 | TC61 | 8132 | Table statistics (HTTP source); own MySQL on 3309 |
 
@@ -516,7 +523,22 @@ For each scheme, the script fills `@SMB_BASE@` and `@RUN_ID@` in `siddhi-apps/te
 ./run_all_tests.sh --with-samba   # or: ./run_all_tests.sh TC65
 ```
 
-### Core SI Runtime Tests (TC40–TC42, TC44, TC47, TC50–TC51, TC57, TC59, TC63, TC66–TC69)
+### FTP and SFTP File Test (TC72)
+
+| TC | Script | Feature Area | External Deps |
+|---|---|---|---|
+| TC72 | `test_tc72_remote_file.sh` | `@source(type='file', mode='line')` with `action.after.process='MOVE'`, an appending `@sink(type='file')`, and `file:isExist`/`file:size` on `ftp://` and `sftp://` URIs; SFTP with a password and with an RSA key passed as `IDENTITY` | FTP and SFTP containers (`setup.sh --ftp`), `ssh-keygen` |
+
+The script fills `@APP@`, `@PORT@`, `@BASE@`, `@OPTS@` and `@TAG@` in `siddhi-apps/templates/TC72_RemoteFile.siddhi` and deploys one copy per protocol. For each it checks: the app deploys; the line source reads both rows of a CSV placed in `<run>/in/` and moves the file to `<run>/processed/`; the file sink appends two rows to `<run>/out/sales.csv`; `file:isExist` reports an existing and a missing file correctly and `file:size` matches the remote file. For key authentication it generates an RSA key in PEM format under `wso2/server/`, adds the public key to the SFTP user's `authorized_keys`, and removes both afterwards. siddhi-io-file 2.0.28 (SI 4.4.0) can't use FTP at all (`NoClassDefFoundError: org/apache/commons/io/FilenameUtils`).
+
+Known issue, reported as `[WARN]`: on FTP, the move can fail with `Could not create FTP directory` for a run directory that exists. VFS caches the FTP parent listing across deployments, so a directory created on the server after SI's first FTP use looks missing. The first FTP use after a server start passes. SI 4.3.1 behaves the same.
+
+```bash
+./scripts/setup.sh --ftp
+./run_all_tests.sh --with-ftp   # or: ./run_all_tests.sh TC72
+```
+
+### Core SI Runtime Tests (TC40–TC42, TC44, TC47, TC50–TC51, TC57, TC59, TC63, TC66–TC71, TC73–TC74)
 
 These run alongside TC01–TC18 as part of the standard core test run.
 
@@ -536,6 +558,10 @@ These run alongside TC01–TC18 as part of the standard core test run.
 | TC67 | `test_tc67_http_oauth_sink.sh` | `http` sink with `consumer.key`/`consumer.secret`/`token.url`: client credentials grant, a 401 from the API, a refresh-token grant and a successful retry, then token reuse. `infra/oauth-mock` serves the token endpoint and the API. siddhi-io-http parses the token responses with the platform org.json bundle | `python3` |
 | TC68 | `test_tc68_https_and_auth.sh` | HTTP source over HTTPS with the pack's `wso2carbon.jks`; `ssl.verify.client='require'` rejects a request without a client certificate in the handshake and accepts one with it; `basic.auth.enabled='true'` returns 401 without or with wrong credentials and 200 with valid ones; an HTTPS sink whose headers are written as `'Name: value'` delivers to the HTTPS source; the SI REST API on `SI_REST_API_PORT` answers alongside; no class-loading errors. siddhi-io-http runs on the platform's HTTP transport and Netty (siddhi-io/siddhi-io-http#227) | `keytool` (from `JAVA_HOME` or `PATH`) |
 | TC69 | `test_tc69_grpc_tls.sh` | gRPC source and sink with `enable.ssl='true'`, with and without `mutual.auth.enabled='true'`, using the pack's `wso2carbon.jks` and `client-truststore.jks`; the TLS port negotiates ALPN `h2` and presents `CN=localhost`; only the mutual TLS port requests a client certificate and it refuses a client without one; events arrive over TLS and mutual TLS; a plain-text client and a TLS client without a certificate are refused; no class-loading or native TLS errors. siddhi-io-grpc runs on the platform's Netty (siddhi-io/siddhi-io-grpc#46) | `openssl` |
+| TC70 | `test_tc70_tcp_transport.sh` | `tcp` sinks to `tcp` sources on the pack's TCP server (`TCP_PORT`, one context per mapper): every attribute type, negatives and non-ASCII text survive the binary, text and JSON mappers and a `sync='true'` sink; a burst of 50 events arrives complete; the server keeps serving after a client sends bytes that aren't a frame. The sinks start before the app's sources open their contexts and drop events for about 5 s, so the script waits for warm-up events first | `nc` |
+| TC71 | `test_tc71_websocket_transport.sh` | `websocket` sink to `websocket-server` source over `ws://`, and over `wss://` with the pack's default keystore and truststore; `websocket-server` sink pushing text-mapped events to a `websocket` source; a burst of 20 events; the TLS listener answers a TLS upgrade with 101 and refuses plain text. Known issue, reported as `[WARN]` (T8): the websocket client connects once and never reconnects, so after the server app is redeployed (or when the client app deploys first) its events are dropped and old connections reach the undeployed app ("is not running"); SI 4.3.1 behaves the same | None |
+| TC73 | `test_tc73_json_list_functions.sh` | `json:getString/getInt/getLong/getDouble/getBool/isExists`, `json:setElement` on `json:toObject`, `json:tokenize`, `json:group`; `list:create/size/get/contains/indexOf/isEmpty/isList/add/remove/sort/clone`, `list:tokenize`, `list:collect` (with its distinct variant) | None |
+| TC74 | `test_tc74_text_mapper.sh` | Text source in the default `name:value` format, with regex groups, with `fail.on.missing.attribute` on (mapping error, event dropped) and off (null), and with event grouping; text sink with a `@payload` template, mustache escaping (`{{ }}` against `{{{ }}}`) and event grouping with a delimiter. The app is a template in `siddhi-apps/templates/` because the file sinks write to a directory the script creates | None |
 
 ### Optional Extension Tests (TC43, TC45, TC46)
 
@@ -638,6 +664,15 @@ Adds TC65 (SMB file sink and source). The Samba container binds host port 445, s
 ```bash
 ./scripts/setup.sh --samba
 ./run_all_tests.sh --with-samba
+```
+
+### With FTP and SFTP
+
+Adds TC72 (file over FTP and SFTP). `setup.sh --ftp` starts `si-test-ftp` (vsftpd, user `sitest`/`sitest123`, host port 2121, passive ports 21100–21130) and `si-test-sftp` (OpenSSH, user `sitest`/`sitest123`, host port 2224, writable directory `/upload`):
+
+```bash
+./scripts/setup.sh --ftp
+./run_all_tests.sh --with-ftp
 ```
 
 ### With Kafka
@@ -817,6 +852,9 @@ You can also run a test script directly (apps must already be deployed):
 
 # Start Samba (share "sambashare", user ubuntu/admin, host port 445) only
 ./scripts/setup.sh --samba
+
+# Start FTP (host port 2121) and SFTP (host port 2224) only
+./scripts/setup.sh --ftp
 
 # Start everything
 ./scripts/setup.sh --all
