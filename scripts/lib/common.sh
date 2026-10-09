@@ -132,6 +132,11 @@ require_samba_running() {
     require_docker_container "${SAMBA_CONTAINER}"
 }
 
+require_ftp_running() {
+    require_docker_container "${FTP_CONTAINER}"
+    require_docker_container "${SFTP_CONTAINER}"
+}
+
 require_mongodb_running() {
     require_docker_container "${MONGODB_CONTAINER}"
 }

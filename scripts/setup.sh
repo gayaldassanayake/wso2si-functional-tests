@@ -7,6 +7,7 @@
 #   ./scripts/setup.sh --rabbitmq       # Start RabbitMQ only
 #   ./scripts/setup.sh --redis          # Start Redis only
 #   ./scripts/setup.sh --samba          # Start Samba only (TC65)
+#   ./scripts/setup.sh --ftp            # Start FTP and SFTP only (TC72)
 #   ./scripts/setup.sh --mongodb        # Start MongoDB only
 #   ./scripts/setup.sh --oracle-ldap    # Start Oracle + OpenLDAP (TC52, not part of --all)
 #   ./scripts/setup.sh --all            # Start all services
@@ -24,6 +25,7 @@ WITH_MYSQL=false
 WITH_RABBITMQ=false
 WITH_REDIS=false
 WITH_SAMBA=false
+WITH_FTP=false
 WITH_MONGODB=false
 WITH_POSTGRES=false
 WITH_ORACLE_LDAP=false
@@ -35,19 +37,20 @@ for arg in "$@"; do
         --rabbitmq) WITH_RABBITMQ=true ;;
         --redis)    WITH_REDIS=true ;;
         --samba)    WITH_SAMBA=true ;;
+        --ftp)      WITH_FTP=true ;;
         --mongodb)  WITH_MONGODB=true ;;
         --postgres) WITH_POSTGRES=true ;;
         --oracle-ldap) WITH_ORACLE_LDAP=true ;;
-        --all)      WITH_KAFKA=true; WITH_MYSQL=true; WITH_RABBITMQ=true; WITH_REDIS=true; WITH_SAMBA=true; WITH_MONGODB=true; WITH_POSTGRES=true ;;
+        --all)      WITH_KAFKA=true; WITH_MYSQL=true; WITH_RABBITMQ=true; WITH_REDIS=true; WITH_SAMBA=true; WITH_FTP=true; WITH_MONGODB=true; WITH_POSTGRES=true ;;
         *)
-            echo "Usage: $0 [--kafka] [--mysql] [--rabbitmq] [--redis] [--samba] [--mongodb] [--postgres] [--oracle-ldap] [--all]"
+            echo "Usage: $0 [--kafka] [--mysql] [--rabbitmq] [--redis] [--samba] [--ftp] [--mongodb] [--postgres] [--oracle-ldap] [--all]"
             exit 1
             ;;
     esac
 done
 
-if [[ "$WITH_KAFKA" == "false" && "$WITH_MYSQL" == "false" && "$WITH_RABBITMQ" == "false" && "$WITH_REDIS" == "false" && "$WITH_SAMBA" == "false" && "$WITH_MONGODB" == "false" && "$WITH_POSTGRES" == "false" && "$WITH_ORACLE_LDAP" == "false" ]]; then
-    echo "Specify at least one service: --kafka, --mysql, --rabbitmq, --redis, --samba, --mongodb, --postgres, or --all"
+if [[ "$WITH_KAFKA" == "false" && "$WITH_MYSQL" == "false" && "$WITH_RABBITMQ" == "false" && "$WITH_REDIS" == "false" && "$WITH_SAMBA" == "false" && "$WITH_FTP" == "false" && "$WITH_MONGODB" == "false" && "$WITH_POSTGRES" == "false" && "$WITH_ORACLE_LDAP" == "false" ]]; then
+    echo "Specify at least one service: --kafka, --mysql, --rabbitmq, --redis, --samba, --ftp, --mongodb, --postgres, or --all"
     exit 1
 fi
 
@@ -73,6 +76,9 @@ if [[ "$WITH_REDIS" == "true" ]]; then
 fi
 if [[ "$WITH_SAMBA" == "true" ]]; then
     SERVICES+=("samba")
+fi
+if [[ "$WITH_FTP" == "true" ]]; then
+    SERVICES+=("ftp" "sftp")
 fi
 if [[ "$WITH_MONGODB" == "true" ]]; then
     SERVICES+=("mongodb")
@@ -126,6 +132,10 @@ if [[ "$WITH_REDIS" == "true" ]]; then
 fi
 if [[ "$WITH_SAMBA" == "true" ]]; then
     wait_healthy "${SAMBA_CONTAINER}"
+fi
+if [[ "$WITH_FTP" == "true" ]]; then
+    wait_healthy "${FTP_CONTAINER}"
+    wait_healthy "${SFTP_CONTAINER}"
 fi
 if [[ "$WITH_MONGODB" == "true" ]]; then
     wait_healthy "${MONGODB_CONTAINER}"
