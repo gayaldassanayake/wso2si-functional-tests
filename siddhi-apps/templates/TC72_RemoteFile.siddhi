@@ -1,0 +1,56 @@
+@App:name('@APP@')
+@App:description('siddhi-io-file over a remote file system (FTP or SFTP): sink, line source with move-after-process, and file functions')
+
+/*
+Tests: file sink and line-mode file source on a remote server through the WSO2 VFS fork, file:isExist and
+       file:size on remote URIs. The script fills in @APP@, @PORT@, @BASE@ (the run directory's URI),
+       @OPTS@ (file.system.options) and @TAG@ (the log prefix), and deploys one copy per protocol.
+Port : 8152 (FTP), 8153 (SFTP)
+Deps : si-test-ftp / si-test-sftp (./scripts/setup.sh --ftp)
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:@PORT@/@APP@/WriteStream',
+        @map(type='json'))
+define stream WriteStream (name string, amount double);
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:@PORT@/@APP@/CheckStream',
+        @map(type='json'))
+define stream CheckStream (id string, path string);
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:@PORT@/@APP@/SizeStream',
+        @map(type='json'))
+define stream SizeStream (id string, path string);
+
+@sink(type='file', file.uri='@BASE@/out/sales.csv', append='true', file.system.options='@OPTS@',
+      @map(type='csv'))
+define stream FileOutStream (name string, amount double);
+
+@source(type='file', dir.uri='@BASE@/in', mode='line', tailing='false', action.after.process='MOVE',
+        move.after.process='@BASE@/processed', file.polling.interval='1000', dir.polling.interval='1000',
+        file.system.options='@OPTS@',
+        @map(type='csv'))
+define stream FileInStream (name string, amount double);
+
+@sink(type='log', prefix='[@TAG@-READ]')
+define stream ReadLogStream (name string, amount double);
+
+@sink(type='log', prefix='[@TAG@-EXISTS]')
+define stream ExistsLogStream (id string, exists bool);
+
+@sink(type='log', prefix='[@TAG@-SIZE]')
+define stream SizeLogStream (id string, size long);
+
+from WriteStream select * insert into FileOutStream;
+
+from FileInStream select * insert into ReadLogStream;
+
+from CheckStream
+select id, file:isExist(path, '@OPTS@') as exists
+insert into ExistsLogStream;
+
+from SizeStream
+select id, file:size(path, '@OPTS@') as size
+insert into SizeLogStream;
