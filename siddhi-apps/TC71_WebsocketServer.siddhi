@@ -1,0 +1,33 @@
+@App:name('TC71_WebsocketServer')
+@App:description('siddhi-io-websocket server side: websocket-server sources over ws:// and wss://, and a websocket-server sink')
+
+/*
+Tests: websocket-server source (ws:// JSON), websocket-server source over wss:// with the pack's default keystore,
+       and a websocket-server sink that pushes text-mapped events to connected clients.
+Port : 8149 ws server source, 8150 wss server source, 8151 websocket-server sink; 8148 HTTP trigger for the push
+Deps : pairs with TC71_WebsocketClient
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8148/TC71_WebsocketServer/PushTriggerStream',
+        @map(type='json'))
+define stream PushTriggerStream (id string, n long, d double);
+
+@source(type='websocket-server', host='localhost', port='8149', @map(type='json'))
+define stream WsInStream (id string, n long, d double);
+
+@source(type='websocket-server', host='localhost', port='8150', tls.enabled='true', @map(type='json'))
+define stream WssInStream (id string, n long, d double);
+
+@sink(type='websocket-server', host='localhost', port='8151', @map(type='text'))
+define stream ServerPushStream (id string, n long, d double);
+
+@sink(type='log', prefix='[TC71-WS]')
+define stream WsLogStream (id string, n long, d double);
+
+@sink(type='log', prefix='[TC71-WSS]')
+define stream WssLogStream (id string, n long, d double);
+
+from WsInStream select * insert into WsLogStream;
+from WssInStream select * insert into WssLogStream;
+from PushTriggerStream select * insert into ServerPushStream;

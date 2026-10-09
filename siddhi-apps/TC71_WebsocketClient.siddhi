@@ -1,0 +1,30 @@
+@App:name('TC71_WebsocketClient')
+@App:description('siddhi-io-websocket client side: websocket sinks over ws:// and wss://, and a websocket source')
+
+/*
+Tests: websocket sink (ws:// JSON), websocket sink over wss:// with the pack's default truststore, and a websocket
+       source that receives text-mapped events pushed by a websocket-server sink.
+Port : 8148 (HTTP trigger)
+Deps : TC71_WebsocketServer must be deployed first
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8148/TC71_WebsocketClient/TriggerStream',
+        @map(type='json'))
+define stream TriggerStream (id string, n long, d double);
+
+@sink(type='websocket', url='ws://localhost:8149/tc71/ws', @map(type='json'))
+define stream WsOutStream (id string, n long, d double);
+
+@sink(type='websocket', url='wss://localhost:8150/tc71/wss', @map(type='json'))
+define stream WssOutStream (id string, n long, d double);
+
+@source(type='websocket', url='ws://localhost:8151/', @map(type='text'))
+define stream ClientInStream (id string, n long, d double);
+
+@sink(type='log', prefix='[TC71-PUSH]')
+define stream PushLogStream (id string, n long, d double);
+
+from TriggerStream select * insert into WsOutStream;
+from TriggerStream select * insert into WssOutStream;
+from ClientInStream select * insert into PushLogStream;
