@@ -1,0 +1,60 @@
+@App:name('TC70_TcpTransport')
+@App:description('siddhi-io-tcp sinks and sources with the binary, text and JSON mappers')
+
+/*
+Tests: tcp sink -> tcp source on the pack's TCP server (port 9892, one context per mapper), binary mapper with
+       every attribute type, text and JSON mappers, synchronous publishing.
+Port : 8147 (HTTP trigger), 9892 (siddhi-io-tcp server)
+Deps : none
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8147/TC70_TcpTransport/TriggerStream',
+        @map(type='json'))
+define stream TriggerStream (id string, i int, l long, d double, f float, b bool);
+
+@sink(type='tcp', url='tcp://localhost:9892/TC70Binary', sync='false', @map(type='binary'))
+define stream BinaryOutStream (id string, i int, l long, d double, f float, b bool);
+
+@sink(type='tcp', url='tcp://localhost:9892/TC70Text', @map(type='text'))
+define stream TextOutStream (id string, i int, l long, d double, f float, b bool);
+
+@sink(type='tcp', url='tcp://localhost:9892/TC70Json', @map(type='json'))
+define stream JsonOutStream (id string, i int, l long, d double, f float, b bool);
+
+@sink(type='tcp', url='tcp://localhost:9892/TC70Sync', sync='true', @map(type='binary'))
+define stream SyncOutStream (id string, i int, l long, d double, f float, b bool);
+
+@source(type='tcp', context='TC70Binary', @map(type='binary'))
+define stream BinaryInStream (id string, i int, l long, d double, f float, b bool);
+
+@source(type='tcp', context='TC70Text', @map(type='text'))
+define stream TextInStream (id string, i int, l long, d double, f float, b bool);
+
+@source(type='tcp', context='TC70Json', @map(type='json'))
+define stream JsonInStream (id string, i int, l long, d double, f float, b bool);
+
+@source(type='tcp', context='TC70Sync', @map(type='binary'))
+define stream SyncInStream (id string, i int, l long, d double, f float, b bool);
+
+@sink(type='log', prefix='[TC70-BINARY]')
+define stream BinaryLogStream (id string, i int, l long, d double, f float, b bool);
+
+@sink(type='log', prefix='[TC70-TEXT]')
+define stream TextLogStream (id string, i int, l long, d double, f float, b bool);
+
+@sink(type='log', prefix='[TC70-JSON]')
+define stream JsonLogStream (id string, i int, l long, d double, f float, b bool);
+
+@sink(type='log', prefix='[TC70-SYNC]')
+define stream SyncLogStream (id string, i int, l long, d double, f float, b bool);
+
+from TriggerStream select * insert into BinaryOutStream;
+from TriggerStream select * insert into TextOutStream;
+from TriggerStream select * insert into JsonOutStream;
+from TriggerStream select * insert into SyncOutStream;
+
+from BinaryInStream select * insert into BinaryLogStream;
+from TextInStream select * insert into TextLogStream;
+from JsonInStream select * insert into JsonLogStream;
+from SyncInStream select * insert into SyncLogStream;
