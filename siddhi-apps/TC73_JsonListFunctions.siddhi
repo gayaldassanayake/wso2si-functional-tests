@@ -1,0 +1,113 @@
+@App:name('TC73_JsonListFunctions')
+@App:description('siddhi-execution-json and siddhi-execution-list functions, stream processors and aggregations')
+
+/*
+Tests: json:getString/getInt/getLong/getDouble/getBool/isExists, json:setElement + toObject + toString,
+       json:tokenize, json:group; list:create/size/get/contains/indexOf/isEmpty/isList/add/remove/sort/clone,
+       list:tokenize, list:collect.
+Port : 8154
+Deps : none
+*/
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8154/TC73_JsonListFunctions/JsonStream',
+        @map(type='json'))
+define stream JsonStream (id string, doc string);
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8154/TC73_JsonListFunctions/ListStream',
+        @map(type='json'))
+define stream ListStream (id string, a string, b string, c string);
+
+@source(type='http',
+        receiver.url='http://0.0.0.0:8154/TC73_JsonListFunctions/ItemStream',
+        @map(type='json'))
+define stream ItemStream (id string, item string);
+
+@sink(type='log', prefix='[TC73-JSON-GET]')
+define stream JsonGetStream (id string, name string, age int, big long, salary double, married bool,
+                             city string, hasCity bool, hasZip bool);
+
+@sink(type='log', prefix='[TC73-JSON-SET]')
+define stream JsonSetStream (id string, updated string);
+
+@sink(type='log', prefix='[TC73-JSON-TOKEN]')
+define stream JsonTokenStream (id string, tag string);
+
+@sink(type='log', prefix='[TC73-JSON-GROUP]')
+define stream JsonGroupStream (grouped string);
+
+@sink(type='log', prefix='[TC73-LIST]')
+define stream ListOutStream (id string, size int, second string, hasBeta bool, hasZeta bool, idxGamma int,
+                             empty bool, isList bool, sizeAfterAdd int, sizeAfterRemove int, sizeOriginal int,
+                             sortedDesc string);
+
+@sink(type='log', prefix='[TC73-LIST-TOKEN]')
+define stream ListTokenStream (id string, idx int, val string);
+
+@sink(type='log', prefix='[TC73-LIST-COLLECT]')
+define stream ListCollectStream (items string, distinctCount int);
+
+@info(name='json-get')
+from JsonStream
+select id,
+       json:getString(doc, '$.name') as name,
+       json:getInt(doc, '$.age') as age,
+       json:getLong(doc, '$.big') as big,
+       json:getDouble(doc, '$.salary') as salary,
+       json:getBool(doc, '$.married') as married,
+       json:getString(doc, '$.address.city') as city,
+       json:isExists(doc, '$.address.city') as hasCity,
+       json:isExists(doc, '$.address.zip') as hasZip
+insert into JsonGetStream;
+
+@info(name='json-set')
+from JsonStream
+select id, json:toString(json:setElement(json:toObject(doc), '$', 'ENG', 'dept')) as updated
+insert into JsonSetStream;
+
+@info(name='json-tokenize')
+from JsonStream#json:tokenize(doc, '$.tags')
+select id, jsonElement as tag
+insert into JsonTokenStream;
+
+@info(name='json-group')
+from JsonStream#window.lengthBatch(2)
+select json:toString(json:group(doc, 'people')) as grouped
+insert into JsonGroupStream;
+
+@info(name='list-create')
+from ListStream
+select id, list:create(a, b, c) as l
+insert into ListObjStream;
+
+@info(name='list-functions')
+from ListObjStream
+select id,
+       list:size(l) as size,
+       convert(list:get(l, 1), 'string') as second,
+       list:contains(l, 'beta') as hasBeta,
+       list:contains(l, 'zeta') as hasZeta,
+       list:indexOf(l, 'gamma') as idxGamma,
+       list:isEmpty(l) as empty,
+       list:isList(l) as isList,
+       list:size(list:add(list:clone(l), 'delta')) as sizeAfterAdd,
+       list:size(list:remove(list:clone(l), 'alpha')) as sizeAfterRemove,
+       list:size(l) as sizeOriginal,
+       convert(list:sort(list:clone(l), 'DESC'), 'string') as sortedDesc
+insert into ListOutStream;
+
+@info(name='list-tokenize')
+from ListObjStream#list:tokenize(l)
+select id, index as idx, convert(value, 'string') as val
+insert into ListTokenStream;
+
+@info(name='list-collect')
+from ItemStream#window.lengthBatch(4)
+select list:collect(item) as items, list:collect(item, true) as distinctItems
+insert into CollectedStream;
+
+@info(name='list-collected')
+from CollectedStream[not(items is null)]
+select convert(items, 'string') as items, list:size(distinctItems) as distinctCount
+insert into ListCollectStream;
